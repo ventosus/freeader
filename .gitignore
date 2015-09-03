@@ -1,0 +1,11 @@
+*.html
+*.dvi
+*.pdf
+*.aux
+*.log
+*.out
+*.pig
+freeader_enc
+freeader_emu
+tags
+*.taghl

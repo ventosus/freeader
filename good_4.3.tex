@@ -1,0 +1,166 @@
+\documentclass[10pt]{scrbook}
+\usepackage[paperwidth=88.0mm,paperheight=66.0mm,margin=0.5mm]{geometry}
+\usepackage[width=88.0mm,height=66.0mm,noinfo]{crop}
+
+\usepackage[T1]{fontenc}
+
+% serif fonts
+\usepackage{gentium}
+%\usepackage{libertine}
+%\usepackage{accanthis}
+%\usepackage{DejaVuSerif}
+%\usepackage[rm,thin]{roboto}
+
+% sans-serif fonts
+%\usepackage[lf]{venturis} %% lf option gives lining figures as default; 
+%\renewcommand*\familydefault{\sfdefault} %% Only if the base font of the document is to be sans serif
+
+\pagestyle{empty}
+\setkomafont{chapter}{\normalfont\large\sffamily\bfseries}
+
+\renewcommand{\thechapter}{}
+\renewcommand{\thesection}{}
+\renewcommand{\thesubsection}{}
+\renewcommand{\thesubsubsection}{}
+
+\sloppy
+
+% end customizations
+
+$if(linestretch)$
+	\usepackage{setspace}
+	\setstretch{$linestretch$}
+$endif$
+
+\usepackage{amssymb,amsmath}
+\usepackage{fixltx2e} % provides \textsubscript
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+$if(euro)$
+	\usepackage{eurosym}
+$endif$
+
+\usepackage[unicode=true]{hyperref}
+\urlstyle{same}  % don't use monospace font for urls
+
+$if(lang)$
+	\usepackage[shorthands=off,$lang$]{babel}
+$endif$
+
+$if(natbib)$
+	\usepackage{natbib}
+	\bibliographystyle{$if(biblio-style)$$biblio-style$$else$plainnat$endif$}
+$endif$
+
+$if(biblatex)$
+	\usepackage{biblatex}
+	$for(bibliography)$
+		\addbibresource{$bibliography$}
+	$endfor$
+$endif$
+
+$if(listings)$
+	\usepackage{listings}
+$endif$
+
+$if(verbatim-in-note)$
+	\usepackage{fancyvrb}
+	\VerbatimFootnotes
+$endif$
+
+$if(tables)$
+	\usepackage{longtable,booktabs}
+$endif$
+
+$if(graphics)$
+	\usepackage{graphicx,grffile}
+	\makeatletter
+	\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+	\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+	\makeatother
+	% Scale images if necessary, so that they will not overflow the page
+	% margins by default, and it is still possible to overwrite the defaults
+	% using explicit options in \includegraphics[width, height, ...]{}
+	\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+$endif$
+
+$if(numbersections)$
+	\setcounter{secnumdepth}{5}
+$else$
+	\setcounter{secnumdepth}{0}
+$endif$
+
+$if(verbatim-in-note)$
+	\VerbatimFootnotes % allows verbatim text in footnotes
+$endif$
+
+$if(title)$
+	\title{$title$$if(subtitle)$\\\vspace{0.5em}{\large $subtitle$}$endif$}
+$endif$
+
+$if(author)$
+	\author{$for(author)$$author$$sep$ \and $endfor$}
+$endif$
+
+\date{$date$}
+
+$for(header-includes)$
+	$header-includes$
+$endfor$
+
+\begin{document}
+$if(title)$
+	\maketitle
+$endif$
+
+$if(abstract)$
+	\begin{abstract}
+	$abstract$
+	\end{abstract}
+$endif$
+
+$for(include-before)$
+	$include-before$
+$endfor$
+
+$if(toc)$
+	{
+	\hypersetup{linkcolor=$if(toccolor)$$toccolor$$else$black$endif$}
+	\setcounter{tocdepth}{$toc-depth$}
+	\tableofcontents
+	}
+$endif$
+
+$if(lot)$
+	\listoftables
+$endif$
+
+$if(lof)$
+	\listoffigures
+$endif$
+
+$body$
+
+$if(natbib)$
+	$if(bibliography)$
+		$if(biblio-title)$
+			$if(book-class)$
+				\renewcommand\bibname{$biblio-title$}
+			$else$
+				\renewcommand\refname{$biblio-title$}
+			$endif$
+		$endif$
+		\bibliography{$for(bibliography)$$bibliography$$sep$,$endfor$}
+	$endif$
+$endif$
+
+$if(biblatex)$
+	\printbibliography$if(biblio-title)$[title=$biblio-title$]$endif$
+$endif$
+
+$for(include-after)$
+	$include-after$
+$endfor$
+
+\end{document}
