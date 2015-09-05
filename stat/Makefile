@@ -26,9 +26,9 @@ CUMS += $(OBJS:=.jbig)
 CUMS += $(OBJS:=.lossless.jbig2)
 CUMS += $(OBJS:=.lossy.jbig2)
 
-all: dir_png stat.neg.png
+all: stat.neg.png
 
-dir_png: flatland.dvi
+dir_png: ../flatland.dvi
 	dvipng --gamma 1.0 -z 0 -D $(DPI) -T $(WIDTH)mm,$(HEIGHT)mm -O $(OFFSET_X)mm,$(OFFSET_Y)mm -o png/%04d.png $<;
 
 flatland.png:
