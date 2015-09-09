@@ -80,3 +80,8 @@ stat.png:	stat.csv stat2.csv stat.r
 
 %.neg.png:	%.png
 	convert -transparent white $< -negate $@
+
+clean:
+	rm -f png/*.png $(TARGETS) $(PNGS) $(CUMS) stat*.csv stat*.png
+
+.PHONY: clear	

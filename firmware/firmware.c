@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <assert.h>
 #include <inttypes.h>
 
 #include <libopencm3/stm32/rcc.h>
@@ -51,10 +52,12 @@ static const clock_scale_t clock_72MHZ = {
 };
 
 #define SYSTICK_PRIORITY (0U << 4)
-#define SYSTICK_FREQUENCY (10000) // 10 kHz
+#define SYSTICK_FREQUENCY (1000) // 1 kHz
 #define SYSTICK_ADD 1
-static uint32_t tick_sum = 0;
+static volatile uint32_t tick_sum = 0;
 
+static const uint32_t page_width = 800;
+static const uint32_t page_height = 600;
 static struct jbg85_dec_state state;
 
 static void
@@ -117,7 +120,7 @@ clock_setup(void)
 	rcc_clock_setup_hse(&clock_72MHZ);
 }
 
-void
+__attribute__((section(".ccm_text"))) void
 sys_tick_handler(void)
 {
 	tick_sum += SYSTICK_ADD;
@@ -197,6 +200,8 @@ cdcacm_data_rx_cb(usbd_device *usbd_dev, uint8_t ep)
 
 	//TODO
 }
+
+static int line = 0;
 		    
 static int
 _line_out(const struct jbg85_dec_state *s, uint8_t *start, size_t len,
@@ -209,8 +214,12 @@ _line_out(const struct jbg85_dec_state *s, uint8_t *start, size_t len,
 	(void)data;
 
 	//TODO
+	
+	line++;
 
-	return y == 600 - 1; // end of page?
+	return y == page_height - 1 // end of page?
+		? 1
+		: 0;
 }
 
 int
@@ -239,14 +248,10 @@ main(void)
 	
 	gpio_set(GPIOB, GPIO2); // turn on LED
 
-	const size_t bufoutlen = 800/8;
+  const size_t bufoutlen = ((page_width >> 3) + !!(page_width & 7)) * 3;
 	uint8_t bufout [bufoutlen];	
 
 	const size_t len = sizeof(compressed);
-
-	const uint32_t cycles = 10;
-	uint32_t iterator = 0;
-	uint32_t sum = 0;
 
 	while(1)
 	{
@@ -257,16 +262,16 @@ main(void)
 		usbd_poll(usbd_dev);
 
 		const uint32_t t0 = tick_sum;
-	
-		jbg85_dec_init(&state, bufout, bufoutlen, _line_out, NULL);
 
+		jbg85_dec_init(&state, bufout, bufoutlen, _line_out, NULL);
+	
 		while(cnt != len)
 		{
 			result = jbg85_dec_in(&state, (uint8_t *)compressed + cnt, len - cnt, &cnt2);
 			cnt += cnt2;
 
 			if(result == JBG_EOK_INTR)
-				break;
+				continue;
 
 			if(result != JBG_EAGAIN)
 				break;
@@ -277,18 +282,13 @@ main(void)
 			
 		const uint32_t t1 = tick_sum;
 		const uint32_t dt = t1 - t0;
-		sum += dt;
 
-		if(++iterator >= cycles)
-		{
-			char buf [64];
-			sprintf(buf, "%"PRIu32"\n", sum / cycles); // systicks
-			while(!usbd_ep_write_packet(usbd_dev, 0x82, buf, strlen(buf)+1))
-				;
+		char buf [128];
+		sprintf(buf, "%li %i %i %lu ms\n\r", state.y, line, result, dt);
+		while(!usbd_ep_write_packet(usbd_dev, 0x82, buf, strlen(buf)))
+			;
 
-			iterator = 0;
-			sum = 0;
-		}
+		line = 0;
 	}
 
 	return 0;

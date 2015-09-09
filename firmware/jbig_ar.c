@@ -259,7 +259,8 @@ void arith_encode(struct jbg_arenc_state *s, int cx, int pix)
 }
 
 
-void arith_decode_init(struct jbg_ardec_state *s, int reuse_st)
+__attribute__((section(".ccm_text"))) void
+arith_decode_init(struct jbg_ardec_state *s, int reuse_st)
 {
   int i;
   
@@ -325,7 +326,8 @@ void arith_decode_init(struct jbg_ardec_state *s, int reuse_st)
  * arithmetic decoding process) are needed to determine that.]
  */
 
-int arith_decode(struct jbg_ardec_state *s, int cx)
+__attribute__((section(".ccm_text"))) int
+arith_decode(struct jbg_ardec_state *s, int cx)
 {
   register unsigned lsz, ss;
   register unsigned char *st;

@@ -37,12 +37,10 @@ SRCLIBDIR = ./libopencm3
 DEVICE := stm32f303cc
 LDSCRIPT := ./F303CC.ld
 
-all: $(BINARY).bin
+all: $(BINARY).images
 
 ## This is the place where the translation DEVICE->LDSCRIPT will be executed
 #include $(SRCLIBDIR)/ld/Makefile.linker
-
-include ./libopencm3.target.mk
 
 lib:
 	$(Q)$(MAKE) -C libopencm3
@@ -61,3 +59,5 @@ dfu: $(BINARY).dfu
 
 download:	$(BINARY).bin
 	dfu-util -a 0 -d $(USB_VENDOR):$(USB_PRODUCT) -s 0x08000000:leave -D $<
+
+include ./libopencm3.target.mk

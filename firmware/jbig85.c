@@ -554,7 +554,8 @@ const char *jbg85_strerror(int errnum)
 /*
  * The constructor for a decoder 
  */
-void jbg85_dec_init(struct jbg85_dec_state *s,
+__attribute__((section(".ccm_text"))) void
+jbg85_dec_init(struct jbg85_dec_state *s,
 		    unsigned char *buf, size_t buflen,
 		    int (*line_out)(const struct jbg85_dec_state *s,
 				    unsigned char *start, size_t len,
@@ -594,7 +595,8 @@ void jbg85_dec_init(struct jbg85_dec_state *s,
  * 0xff, meaning that this code can not determine whether we have a
  * marker segment.
  */
-static size_t decode_pscd(struct jbg85_dec_state *s, unsigned char *data,
+__attribute__((section(".ccm_text"))) static size_t
+decode_pscd(struct jbg85_dec_state *s, unsigned char *data,
 			  size_t len)
 {
   unsigned char *hp1, *hp2, *hp3, *p1;
@@ -779,7 +781,8 @@ static size_t decode_pscd(struct jbg85_dec_state *s, unsigned char *data,
  * Helper routine for processing SDNORM/SDRST marker segment
  * (which is found in s->buffer[0..1])
  */
-static int finish_sde(struct jbg85_dec_state *s)
+__attribute__((section(".ccm_text"))) static int
+finish_sde(struct jbg85_dec_state *s)
 {
   /* decode final pixels based on trailing zero bytes */
   s->s.nopadding = 0;
@@ -834,7 +837,8 @@ static int finish_sde(struct jbg85_dec_state *s)
  * provide additional information by identifying which test exactly
  * has failed.)
  */
-int jbg85_dec_in(struct jbg85_dec_state *s, unsigned char *data, size_t len,
+__attribute__((section(".ccm_text"))) int
+jbg85_dec_in(struct jbg85_dec_state *s, unsigned char *data, size_t len,
 		 size_t *cnt)
 {
   int required_length;
@@ -1084,7 +1088,8 @@ int jbg85_dec_in(struct jbg85_dec_state *s, unsigned char *data, size_t len,
  * BIEs with option VLENGTH=1 that do not actually contain any NEWLEN
  * marker section.
  */
-int jbg85_dec_end(struct jbg85_dec_state *s)
+__attribute((section(".ccm_text"))) int
+jbg85_dec_end(struct jbg85_dec_state *s)
 {
   s->end_of_bie = 1;
   return jbg85_dec_in(s, NULL, 0, NULL);

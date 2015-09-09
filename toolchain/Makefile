@@ -59,7 +59,7 @@ freeader_emu:	freeader_emu.c freeader.h
 freeader_enc:	freeader_enc.c freeader.h
 	$(CC) -O3 -std=gnu11 -o $@ $< -I./ -lpng -ljbig85
 
-clear: 
+clean: 
 	rm -f *.html *.dvi *.pdf *.aux *.log *.out *.pig
 
 .PHONY: clear	

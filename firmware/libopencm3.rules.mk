@@ -121,7 +121,7 @@ LDLIBS		+= -Wl,--start-group -lc -lgcc -lnosys -Wl,--end-group
 ###############################################################################
 ###############################################################################
 
-.SUFFIXES: .elf .bin .hex .srec .list .map .images
+.SUFFIXES: .elf .bin .hex .srec .list .map .images .disas.S
 .SECONDEXPANSION:
 .SECONDARY:
 
@@ -132,11 +132,12 @@ bin: $(BINARY).bin
 hex: $(BINARY).hex
 srec: $(BINARY).srec
 list: $(BINARY).list
+disas: $(BINARY).disas.S
 
 images: $(BINARY).images
 flash: $(BINARY).flash
 
-%.images: %.bin %.hex %.srec %.list %.map
+%.images: %.bin %.hex %.srec %.list %.map %.disas.S
 	@#printf "*** $* images generated ***\n"
 
 %.bin: %.elf
@@ -154,6 +155,10 @@ flash: $(BINARY).flash
 %.list: %.elf
 	@#printf "  OBJDUMP $(*).list\n"
 	$(Q)$(OBJDUMP) -S $(*).elf > $(*).list
+
+%.disas.S: %.elf
+	@#printf "  OBJDUMP $(*).disas.S\n"
+	$(Q)$(OBJDUMP) -d $(*).elf > $(*).disas.S
 
 %.elf %.map: $(OBJS) $(LDSCRIPT) $(LIB_DIR)/lib$(LIBNAME).a
 	@#printf "  LD      $(*).elf\n"
@@ -173,7 +178,7 @@ flash: $(BINARY).flash
 
 clean:
 	@#printf "  CLEAN\n"
-	$(Q)$(RM) $(TARS) *.elf *.bin *.hex *.srec *.list *.map
+	$(Q)$(RM) $(TARS) *.elf *.bin *.hex *.srec *.list *.map *.disas.S
 
 stylecheck: $(STYLECHECKFILES:=.stylecheck)
 styleclean: $(STYLECHECKFILES:=.styleclean)
@@ -236,6 +241,6 @@ else
 		   $(*).elf
 endif
 
-.PHONY: images clean stylecheck styleclean elf bin hex srec list
+.PHONY: images clean stylecheck styleclean elf bin hex srec list disas
 
 -include $(OBJS:.o=.d)
