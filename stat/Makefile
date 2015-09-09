@@ -28,13 +28,34 @@ CUMS += $(OBJS:=.lossy.jbig2)
 
 all: stat.neg.png
 
-dir_png: ../flatland.dvi
+# get source html from Project Gutenberg
+flatland.html:
+	wget -O $@ https://www.gutenberg.org/cache/epub/97/pg97.html
+
+# convert html to tex
+%.tex: %.html $(TEMPLATE)
+	pandoc \
+		--template=$(TEMPLATE) \
+		--variable=lang:english \
+		--variable=title:"Flatland" \
+		--variable=author:"Edwin Abbott" \
+		-o $@ $<
+
+# render tex to dvi
+%.dvi: %.tex
+	latex $<
+
+# render dvi to sequence of png's
+dir_png: flatland.dvi
+	mkdir -p png
 	dvipng --gamma 1.0 -z 0 -D $(DPI) -T $(WIDTH)mm,$(HEIGHT)mm -O $(OFFSET_X)mm,$(OFFSET_Y)mm -o png/%04d.png $<;
 
+# combine png's into one
 flatland.png:
 	convert -append -define PNG:compression_level=9 -threshold 50\% png/00??.png $@
 
 cum/%.png: png/%.png
+	mkdir -p cum
 	convert -define PNG:compression_level=9 -threshold 50\% $< $@
 
 %.pbm:	%.png
@@ -82,6 +103,6 @@ stat.png:	stat.csv stat2.csv stat.r
 	convert -transparent white $< -negate $@
 
 clean:
-	rm -f png/*.png $(TARGETS) $(PNGS) $(CUMS) stat*.csv stat*.png
+	rm -f flatland.* x.log png/*.png $(TARGETS) $(PNGS) $(CUMS) stat*.csv stat*.png
 
 .PHONY: clear	
