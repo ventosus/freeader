@@ -1,0 +1,295 @@
+fonts {
+	font: "Roboto-Regular.ttf" "Roboto";
+	//font: "Klingon-pIqaD-HaSta.ttf" "klingon";
+}
+
+images {
+	image: "book_logo.png" COMP;
+	image: "book_logo_neg.png" COMP;
+	image: "folder_logo.png" COMP;
+	image: "folder_logo_neg.png" COMP;
+	image: "border_empty.png" COMP;
+	image: "border_filled.png" COMP;
+}
+
+styles {
+	style { "entry_style";
+		base: "font=Roboto-Regular font_size=20 align=left valign=0.5 color=#000";
+		tag: "title" "+ font_weight=Bold";
+		tag: "author" "+ font_size=16 font_style=Oblique";
+	}
+	style { "entry_style_neg";
+		base: "font=Roboto-Regular font_size=20 align=left valign=0.5 color=#fff";
+		tag: "title" "+ font_weight=Bold";
+		tag: "author" "+ font_size=16 font_style=Oblique";
+	}
+}
+
+#define BLACK 0 0 0 255
+#define WHITE 255 255 255  255
+
+collections {
+	group {
+		name: "/freeader/entry";
+
+		parts {
+			part {
+				name: "bg";
+				type: IMAGE;
+				description {
+					state: "default" 0.0;
+					image {
+						normal: "border_empty.png";
+						border: 10 10 10 10;
+						middle: 0;
+					}
+				}
+				description {
+					state : "default" 1.0;
+					inherit: "default" 0.0;
+					//rel1.offset: 20 0;
+					image {
+						normal: "border_filled.png";
+						middle: 1;
+					}
+				}
+			}
+
+			part {
+				name: "clip.book";
+				type: RECT;
+				description {
+					state: "default" 0.0;
+					color: 255 255 255 255;
+				}
+				description {
+					state: "default" 1.0;
+					color: 255 255 255 0;
+				}
+			}
+			part {
+				name: "icon.book";
+				type: IMAGE;
+				clip_to: "clip.book";
+				description
+				{
+					state: "default" 0.0;
+					rel1.to: "bg";
+					rel1.relative: 0.0 0.0;
+					rel1.offset: 10 0;
+					rel2.to: "bg";
+					rel2.relative: 0.0 1.0; 
+					rel2.offset: 50 0;
+					aspect: 1 1;
+					aspect_preference: BOTH;
+					image.normal: "book_logo.png";
+				}
+				description {
+					state: "default" 1.0;
+					inherit: "default" 0.0;
+					image.normal: "book_logo_neg.png";
+				}
+			}
+			
+			part {
+				name: "clip.folder";
+				type: RECT;
+				description {
+					state: "default" 0.0;
+					color: 255 255 255 0;
+				}
+				description {
+					state: "default" 1.0;
+					color: 255 255 255 255;
+				}
+			}
+			part {
+				name: "icon.folder";
+				type: IMAGE;
+				clip_to: "clip.folder";
+				description
+				{
+					state: "default" 0.0;
+					rel1.to: "bg";
+					rel1.relative: 0.0 0.0;
+					rel1.offset: 10 0;
+					rel2.to: "bg";
+					rel2.relative: 0.0 1.0; 
+					rel2.offset: 50 0;
+					aspect: 1 1;
+					aspect_preference: BOTH;
+					image.normal: "folder_logo.png";
+				}
+				description {
+					state: "default" 1.0;
+					inherit: "default" 0.0;
+					image.normal: "folder_logo_neg.png";
+				}
+			}
+			
+			part {
+				name: "lab";
+				type: TEXTBLOCK;
+				description {
+					state: "default" 0.0;
+					rel1.to: "icon.book";
+					rel1.relative: 1.0 0.0;
+					rel1.offset: 10 0;
+					text {
+						text: "-";
+						style: "entry_style";
+						align: 0 0.5;
+						min: 1 1;
+						ellipsis: -1;
+					}
+				}
+				description {
+					state: "default" 1.0;
+					inherit: "default" 0.0;
+					text.style: "entry_style_neg";
+				}
+			}
+		}
+
+		programs {
+			program {
+				signal: "highlight,on";
+				source: "freeader";
+				action: STATE_SET "default" 1.0;
+				target: "bg";
+				target: "icon.book";
+				target: "icon.folder";
+				target: "lab";
+			}
+			program {
+				signal: "highlight,off";
+				source: "freeader";
+				action: STATE_SET "default" 0.0;
+				target: "bg";
+				target: "icon.book";
+				target: "icon.folder";
+				target: "lab";
+			}
+			program {
+				signal: "type,book";
+				source: "freeader";
+				action: STATE_SET "default" 0.0;
+				target: "clip.book";
+				target: "clip.folder";
+			}
+			program {
+				signal: "type,folder";
+				source: "freeader";
+				action: STATE_SET "default" 1.0;
+				target: "clip.book";
+				target: "clip.folder";
+			}
+		}
+	}
+
+	group {
+		name: "/freeader/theme";
+
+		parts {
+			part {
+				name: "bg";
+				type: RECT;
+				description {
+					state: "default" 0.0;
+					color: WHITE;
+				}
+			}
+			
+			part {
+				name: "header";
+				type: IMAGE;
+				description {
+					state: "default";
+					rel1.relative: 0 0;
+					rel1.offset: 0 -40;
+					rel2.relative: 1 0;
+					rel2.offset: 0 40;
+					image {
+						normal: "border_filled.png";
+						border: 10 10 10 10;
+						middle: 1;
+					}
+				}
+			}
+			part {
+				name: "path";
+				type: TEXT;
+				description {
+					state: "default";
+					rel1.to: "header";
+					rel1.relative: 0 0.5;
+					rel2.to: "header";
+					text {
+						text: "/";
+						font: "Roboto:weight=Bold";
+						size: 20;
+						align: 0.5 0.5;
+					}
+					color: WHITE;
+				}
+			}
+			
+			part {
+				name: "box";
+				type: BOX;
+				description {
+					state: "default" 0.0;
+					rel1.to: "header";
+					rel1.relative: 0 1;
+					rel1.offset: 0 20;
+					rel2.to: "footer";
+					rel2.relative: 1 0;
+					rel2.offset: 0 20;
+					box {
+						layout: "vertical_flow";
+						padding: 0 0;
+						align: 0.0 0.0;
+						min: 1 1;
+					}
+				}
+			}
+			
+			part {
+				name: "footer";
+				type: IMAGE;
+				description {
+					state: "default";
+					rel1.relative: 0 1;
+					rel1.offset: 0 -40;
+					rel2.relative: 1 1;
+					rel2.offset: 0 40;
+					image {
+						normal: "border_filled.png";
+						border: 10 10 10 10;
+						middle: 1;
+					}
+				}
+			}
+
+			part {
+				name: "logo";
+				type: TEXT;
+				effect: OUTLINE;
+				description {
+					state: "default";
+					rel1.to: "footer";
+					rel2.to: "footer";
+					rel2.relative: 1 0.5;
+					text {
+						text: "F r e E a d e r";
+						font: "Roboto:weight=Bold";
+						size: 30;
+						align: 0.5 0.5;
+					}
+					color: BLACK;
+					color2: WHITE;
+				}
+			}
+		}
+	}
+}

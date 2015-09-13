@@ -19,8 +19,9 @@ TEMPLATE := good_4.3.tex
 
 BOOKS := flatland.pig
 #BOOKS += voyage_au_centre_de_la_terre.pig
+BOOKS += menu.pig
 
-all:	freeader_emu freeader_enc $(BOOKS)
+all:	freeader_emu freeader_enc freeader_gen $(BOOKS)
 
 voyage_au_centre_de_la_terre.html:
 	wget -O $@ https://www.gutenberg.org/cache/epub/4791/pg4791.html
@@ -46,6 +47,12 @@ flatland.html:
 %.pdf:	%.tex
 	pdflatex $<
 
+menu.pig: freeader_gen theme.edj
+	$(eval TMP := $(shell mktemp -d))
+	./freeader_gen $(TMP)/%08d.pbm
+	./freeader_enc $@ $(TMP)/????????.pbm
+	rm -rf $(TMP)
+
 # create raw bilevel image
 %.pig: %.dvi freeader_enc
 	$(eval TMP := $(shell mktemp -d))
@@ -54,7 +61,18 @@ flatland.html:
 	rm -rf $(TMP)
 
 freeader_emu:	freeader_emu.c freeader.h
-	$(CC) -O3 -std=gnu11 -o $@ $< -I./ $(shell pkg-config --cflags --libs elementary) -ljbig85
+	$(CC) -O3 -std=gnu11 -o $@ $< -I./ \
+		$(shell pkg-config --cflags --libs elementary) -ljbig85
+
+theme.edj: theme.edc
+	edje_cc -fd ./ -id ./ $< $@
+
+freeader_gen:	freeader_gen.c freeader.h theme.edj
+	$(CC) -O3 -g -std=gnu11 -D_GNU_SOURCE=1 -o $@ $< -I./ \
+		$(shell pkg-config --cflags --libs edje) \
+		$(shell pkg-config --cflags --libs evas) \
+		$(shell pkg-config --cflags --libs ecore) \
+		$(shell pkg-config --cflags --libs ecore-evas) -ljbig85
 
 freeader_enc:	freeader_enc.c freeader.h
 	$(CC) -O3 -std=gnu11 -o $@ $< -I./ -lpng -ljbig85

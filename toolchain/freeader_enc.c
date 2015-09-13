@@ -68,6 +68,27 @@ _read_png_file(const char *file_name, png_bytep *row_pointers)
 }
 
 static void
+_read_pbm_file(const char *file_name, uint8_t **raw_pointers)
+{
+	FILE *fp = fopen(file_name, "rb");
+
+	char fmt [128];
+	fscanf(fp, "%s\n", &fmt);
+	if(strcmp(fmt, "P4"))
+		_abort("[read_pbm_file] File %s has not type 'P4'", file_name);
+
+	unsigned int width, height;
+	fscanf(fp, "%u %u\n", &width, &height);
+	if( (width != 800) || (height != 600) )
+		_abort("[read_pbm_file] File %s has not expected size", file_name);
+
+	for(int j=0; j<height; j++)
+		fread(raw_pointers[j], 1, width/8, fp);
+
+	fclose(fp);
+}
+
+static void
 _out(uint8_t *start, size_t len, void *data)
 {
 	FILE *fout = data;
@@ -107,8 +128,12 @@ main(int argc, char **argv)
 	};
 		
 	png_bytep *row_pointers = malloc(sizeof(png_bytep) * height);
+	uint8_t **raw_pointers = malloc(sizeof(uint8_t *) * height);
 	for(int j=0; j<height; j++)
+	{
 		row_pointers[j] = malloc(width * sizeof(uint32_t));
+		raw_pointers[j] = malloc(width * sizeof(uint8_t) / 8);
+	}
 
 	FILE *fout = fopen(argv[1], "wb");
 	if(!fout)
@@ -143,35 +168,59 @@ main(int argc, char **argv)
 			printf("\n%i:", s-1);
 		}
 
-		_read_png_file(argv[p+2], row_pointers);
-
-		for(int j=0; j<height; j++, y++)
+		if(strstr(argv[p+2], ".png"))
 		{
-			uint8_t *line = lines[y % 3];
-			uint8_t *prevline = NULL;
-			uint8_t *prevprevline = NULL;
+			_read_png_file(argv[p+2], row_pointers);
 
-			uint8_t *dst = line;
-			png_byte *row = row_pointers[j];
-			for(int x=0; x<width; x+=8, dst++)
+			for(int j=0; j<height; j++, y++)
 			{
-				png_byte *ptr = &(row[x*3]);
-				*dst = 0;
-				*dst |= (ptr[0*3] < thresh ? 1 : 0) << 7;
-				*dst |= (ptr[1*3] < thresh ? 1 : 0) << 6;
-				*dst |= (ptr[2*3] < thresh ? 1 : 0) << 5;
-				*dst |= (ptr[3*3] < thresh ? 1 : 0) << 4;
-				*dst |= (ptr[4*3] < thresh ? 1 : 0) << 3;
-				*dst |= (ptr[5*3] < thresh ? 1 : 0) << 2;
-				*dst |= (ptr[6*3] < thresh ? 1 : 0) << 1;
-				*dst |= (ptr[7*3] < thresh ? 1 : 0) << 0;
-			}
+				uint8_t *line = lines[y % 3];
+				uint8_t *prevline = NULL;
+				uint8_t *prevprevline = NULL;
 
-			if(y>0)
-				prevline = lines[(y-1) % 3];
-			if(y>1)
-				prevprevline = lines[(y-2) % 3];
-			jbg85_enc_lineout(&state, line, prevline, prevprevline);
+				uint8_t *dst = line;
+				png_byte *row = row_pointers[j];
+				for(int x=0; x<width; x+=8, dst++)
+				{
+					png_byte *ptr = &(row[x*3]);
+					*dst = 0;
+					*dst |= (ptr[0*3] < thresh ? 1 : 0) << 7;
+					*dst |= (ptr[1*3] < thresh ? 1 : 0) << 6;
+					*dst |= (ptr[2*3] < thresh ? 1 : 0) << 5;
+					*dst |= (ptr[3*3] < thresh ? 1 : 0) << 4;
+					*dst |= (ptr[4*3] < thresh ? 1 : 0) << 3;
+					*dst |= (ptr[5*3] < thresh ? 1 : 0) << 2;
+					*dst |= (ptr[6*3] < thresh ? 1 : 0) << 1;
+					*dst |= (ptr[7*3] < thresh ? 1 : 0) << 0;
+				}
+
+				if(y>0)
+					prevline = lines[(y-1) % 3];
+				if(y>1)
+					prevprevline = lines[(y-2) % 3];
+				jbg85_enc_lineout(&state, line, prevline, prevprevline);
+			}
+		}
+		else if(strstr(argv[p+2], ".pbm"))
+		{
+			_read_pbm_file(argv[p+2], raw_pointers);
+
+			for(int j=0; j<height; j++, y++)
+			{
+				uint8_t *line = lines[y % 3];
+				uint8_t *prevline = NULL;
+				uint8_t *prevprevline = NULL;
+
+				uint8_t *dst = line;
+				uint8_t *row = raw_pointers[j];
+				memcpy(dst, row, width/8);
+
+				if(y>0)
+					prevline = lines[(y-1) % 3];
+				if(y>1)
+					prevprevline = lines[(y-2) % 3];
+				jbg85_enc_lineout(&state, line, prevline, prevprevline);
+			}
 		}
 
 		printf(" [%i]", p);
@@ -180,8 +229,12 @@ main(int argc, char **argv)
 	printf("\n");
 
 	for(int j=0; j<height; j++)
+	{
 		free(row_pointers[j]);
+		free(raw_pointers[j]);
+	}
 	free(row_pointers);
+	free(raw_pointers);
 
 	free(lines[0]);
 	free(lines[1]);

@@ -8,7 +8,6 @@ tags
 *.log
 *.out
 
-*.png
 *.group3.tiff
 *.group4.tiff
 *.jbig2
@@ -19,6 +18,8 @@ tags
 
 toolchain/freeader_enc
 toolchain/freeader_emu
+toolchain/freeader_gen
+toolchain/theme.edj
 
 firmware/*.o
 firmware/*.d
