@@ -208,7 +208,7 @@ collections {
 					rel1.relative: 0 0;
 					rel1.offset: 0 -40;
 					rel2.relative: 1 0;
-					rel2.offset: 0 40;
+					rel2.offset: -1 40;
 					image {
 						normal: "border_filled.png";
 						border: 10 10 10 10;
@@ -262,7 +262,7 @@ collections {
 					rel1.relative: 0 1;
 					rel1.offset: 0 -40;
 					rel2.relative: 1 1;
-					rel2.offset: 0 40;
+					rel2.offset: -1 40;
 					image {
 						normal: "border_filled.png";
 						border: 10 10 10 10;
