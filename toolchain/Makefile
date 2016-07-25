@@ -12,26 +12,29 @@ THRESH := 255
 #TEMPLATE := pervasive_4.41.tex
 
 # good displays 4.3"
+PIXEL_X := 800
+PIXEL_Y := 600
 WIDTH := 88.0
 HEIGHT := 66.0
 DPI := 231
 TEMPLATE := good_4.3.tex
 
 BOOKS := flatland.pig
-BOOKS += voyage_au_centre_de_la_terre.pig
+BOOKS += voyage.pig
+BOOKS += zhenskoe.pig
 BOOKS += menu.pig
 
 all:	freeader_emu freeader_enc freeader_gen $(BOOKS)
 
-voyage_au_centre_de_la_terre.html:
+voyage.html:
 	wget -O $@ https://www.gutenberg.org/cache/epub/4791/pg4791.html
 
 # get source html from Project Gutenberg
 flatland.html:
 	wget -O $@ https://www.gutenberg.org/cache/epub/97/pg97.html
 
-krasavitse.html:
-	wget -O $@ https://www.gutenberg.org/files/5316/5316-h/5316-h.htm
+zhenskoe.html:
+	wget -O $@ https://www.gutenberg.org/cache/epub/37196/pg37196.html
 
 # convert html to tex
 flatland.tex:	flatland.html $(TEMPLATE)
@@ -43,7 +46,7 @@ flatland.tex:	flatland.html $(TEMPLATE)
 		-o $@ $<
 
 # convert html to tex
-voyage_au_centre_de_la_terre.tex:	voyage_au_centre_de_la_terre.html $(TEMPLATE)
+voyage.tex:	voyage.html $(TEMPLATE)
 	pandoc \
 		--template=$(TEMPLATE) \
 		--variable=lang:french \
@@ -52,25 +55,21 @@ voyage_au_centre_de_la_terre.tex:	voyage_au_centre_de_la_terre.html $(TEMPLATE)
 		-o $@ $<
 
 # convert html to tex
-krasavitse.tex:	krasavitse.html $(TEMPLATE)
+zhenskoe.tex:	zhenskoe.html $(TEMPLATE)
 	pandoc \
 		--template=$(TEMPLATE) \
 		--variable=lang:russian \
-		--variable=title:"Krasnavitse, Kotorata Niuhala Tabak" \
-		--variable=author:"Alexander Pushkin" \
+		--variable=title:"Zhenskoe Mezhdunarodnoe Dvizhenie Sbornik Statei" \
+		--variable=author:"Various" \
 		-o $@ $<
 
 # render tex to dvi
 %.dvi:	%.tex
 	latex $<
 
-# render tex to xdv
-%.xdv:	%.tex
-	xelatex -no-pdf $<
-
 # render pdf from preview
 %.pdf:	%.tex
-	pdflatex $<
+	xelatex $<
 
 menu.pig: freeader_gen theme.edj
 	$(eval TMP := $(shell mktemp -d))
@@ -79,11 +78,18 @@ menu.pig: freeader_gen theme.edj
 	rm -rf $(TMP)
 
 # create raw bilevel image
-%.pig: %.dvi freeader_enc
+%.pig: %.pdf freeader_enc
 	$(eval TMP := $(shell mktemp -d))
-	dvipng --gamma 1.0 -z 1 -D $(DPI) -T $(WIDTH)mm,$(HEIGHT)mm -O $(OFFSET_X)mm,$(OFFSET_Y)mm -o $(TMP)/%08d.png $<
-	./freeader_enc $@ $(TMP)/????????.png
+	pdftoppm $< -r $(DPI) -W $(PIXEL_X) -H $(PIXEL_Y) -mono -thinlinemode shape $(TMP)/frm_
+	./freeader_enc $@ $(TMP)/*.pbm
 	rm -rf $(TMP)
+
+# create raw bilevel image
+#%.pig: %.dvi freeader_enc
+#	$(eval TMP := $(shell mktemp -d))
+#	dvipng --gamma 1.0 -z 1 -D $(DPI) -T $(WIDTH)mm,$(HEIGHT)mm -O $(OFFSET_X)mm,$(OFFSET_Y)mm -o $(TMP)/%08d.png $<
+#	./freeader_enc $@ $(TMP)/????????.png
+#	rm -rf $(TMP)
 
 freeader_emu:	freeader_emu.c freeader.h
 	$(CC) -O3 -std=gnu11 -o $@ $< -I./ \

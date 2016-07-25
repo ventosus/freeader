@@ -3,22 +3,9 @@
 \usepackage[width=88.0mm,height=66.0mm,noinfo]{crop}
 
 % for XeLATEX
-%\usepackage{xltxtra,fontspec,xunicode}
-%\setromanfont{GentiumPlus}
-
-%\usepackage[T1]{fontenc}
-\usepackage[utf8x]{inputenc}
-
-% serif fonts
-\usepackage{gentium}
-%\usepackage{libertine}
-%\usepackage{accanthis}
-%\usepackage{DejaVuSerif}
-%\usepackage[rm,thin]{roboto}
-
-% sans-serif fonts
-%\usepackage[lf]{venturis} %% lf option gives lining figures as default; 
-%\renewcommand*\familydefault{\sfdefault} %% Only if the base font of the document is to be sans serif
+%\usepackage[utf8x]{inputenc}
+\usepackage{xltxtra,fontspec,xunicode}
+\setromanfont{GentiumPlus}
 
 \pagestyle{empty}
 \setkomafont{chapter}{\normalfont\large\sffamily\bfseries}
@@ -40,8 +27,6 @@ $endif$
 
 \usepackage{amssymb,amsmath}
 \usepackage{fixltx2e} % provides \textsubscript
-%\usepackage[T1]{fontenc}
-%\usepackage[utf8]{inputenc}
 
 $if(euro)$
 	\usepackage{eurosym}
