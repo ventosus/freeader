@@ -18,7 +18,7 @@ DPI := 231
 TEMPLATE := good_4.3.tex
 
 BOOKS := flatland.pig
-#BOOKS += voyage_au_centre_de_la_terre.pig
+BOOKS += voyage_au_centre_de_la_terre.pig
 BOOKS += menu.pig
 
 all:	freeader_emu freeader_enc freeader_gen $(BOOKS)
@@ -30,8 +30,11 @@ voyage_au_centre_de_la_terre.html:
 flatland.html:
 	wget -O $@ https://www.gutenberg.org/cache/epub/97/pg97.html
 
+krasavitse.html:
+	wget -O $@ https://www.gutenberg.org/files/5316/5316-h/5316-h.htm
+
 # convert html to tex
-%.tex:	%.html $(TEMPLATE)
+flatland.tex:	flatland.html $(TEMPLATE)
 	pandoc \
 		--template=$(TEMPLATE) \
 		--variable=lang:english \
@@ -39,9 +42,31 @@ flatland.html:
 		--variable=author:"Edwin Abbott" \
 		-o $@ $<
 
+# convert html to tex
+voyage_au_centre_de_la_terre.tex:	voyage_au_centre_de_la_terre.html $(TEMPLATE)
+	pandoc \
+		--template=$(TEMPLATE) \
+		--variable=lang:french \
+		--variable=title:"Voyage au centre de la terre" \
+		--variable=author:"Jules Verne" \
+		-o $@ $<
+
+# convert html to tex
+krasavitse.tex:	krasavitse.html $(TEMPLATE)
+	pandoc \
+		--template=$(TEMPLATE) \
+		--variable=lang:russian \
+		--variable=title:"Krasnavitse, Kotorata Niuhala Tabak" \
+		--variable=author:"Alexander Pushkin" \
+		-o $@ $<
+
 # render tex to dvi
 %.dvi:	%.tex
 	latex $<
+
+# render tex to xdv
+%.xdv:	%.tex
+	xelatex -no-pdf $<
 
 # render pdf from preview
 %.pdf:	%.tex

@@ -2,7 +2,12 @@
 \usepackage[paperwidth=88.0mm,paperheight=66.0mm,margin=0.5mm]{geometry}
 \usepackage[width=88.0mm,height=66.0mm,noinfo]{crop}
 
-\usepackage[T1]{fontenc}
+% for XeLATEX
+%\usepackage{xltxtra,fontspec,xunicode}
+%\setromanfont{GentiumPlus}
+
+%\usepackage[T1]{fontenc}
+\usepackage[utf8x]{inputenc}
 
 % serif fonts
 \usepackage{gentium}
@@ -35,8 +40,8 @@ $endif$
 
 \usepackage{amssymb,amsmath}
 \usepackage{fixltx2e} % provides \textsubscript
-\usepackage[T1]{fontenc}
-\usepackage[utf8]{inputenc}
+%\usepackage[T1]{fontenc}
+%\usepackage[utf8]{inputenc}
 
 $if(euro)$
 	\usepackage{eurosym}
