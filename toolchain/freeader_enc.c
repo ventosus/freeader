@@ -1,13 +1,30 @@
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <unistd.h>
+#include <ctype.h>
 
 #include <freeader.h>
 #include <jbig85.h>
 
 #define PNG_DEBUG 3
 #include <png.h>
+
+typedef enum _image_format_t image_format_t;
+typedef enum _input_format_t input_format_t;
+
+enum _image_format_t {
+	IMAGE_FORMAT_PBM,
+	IMAGE_FORMAT_PNG
+};
+
+enum _input_format_t {
+	INPUT_FORMAT_STREAM,
+	INPUT_FORMAT_FILE
+};
 
 static void
 _abort(const char *s, ...)
@@ -89,6 +106,27 @@ _read_pbm_file(const char *file_name, uint8_t **raw_pointers)
 }
 
 static void
+_read_pbm_stream(const char *file_name, uint8_t **raw_pointers)
+{
+	FILE *fp = fopen(file_name, "rb");
+
+	char fmt [128];
+	fscanf(fp, "%s\n", &fmt);
+	if(strcmp(fmt, "P4"))
+		_abort("[read_pbm_file] File %s has not type 'P4'", file_name);
+
+	unsigned int width, height;
+	fscanf(fp, "%u %u\n", &width, &height);
+	if( (width != 800) || (height != 600) )
+		_abort("[read_pbm_file] File %s has not expected size", file_name);
+
+	for(int j=0; j<height; j++)
+		fread(raw_pointers[j], 1, width/8, fp);
+
+	fclose(fp);
+}
+
+static void
 _out(uint8_t *start, size_t len, void *data)
 {
 	FILE *fout = data;
@@ -101,26 +139,133 @@ main(int argc, char **argv)
 {
 	struct jbg85_enc_state state;
 
+	uint32_t width = 800;
+	uint32_t height = 600;
+	uint32_t pages_per_section = 15;
 	uint8_t thresh = 0xff;
+	image_format_t image_format = IMAGE_FORMAT_PBM;
+	uint32_t page_number = 0;
+	const char *output_file = "out.pig";
 
-	uint32_t width = 800; //TODO
-	uint32_t height = 600; //TODO
-	uint32_t page_number = argc - 2;
-	uint32_t pages_per_section = 15; //TODO
+	fprintf(stderr,
+		"%s 0.1.0\n" //FIXME
+		"Copyright (c) 2015-2016 Hanspeter Portner (dev@open-music-kontrollers.ch)\n"
+		"Released under Artistic License 2.0 by Open Music Kontrollers\n", argv[0]);
+	
+	int c;
+	while((c = getopt(argc, argv, "vhW:H:P:S:F:T:O:")) != -1)
+	{
+		switch(c)
+		{
+			case 'v':
+				fprintf(stderr,
+					"--------------------------------------------------------------------\n"
+					"This is free software: you can redistribute it and/or modify\n"
+					"it under the terms of the Artistic License 2.0 as published by\n"
+					"The Perl Foundation.\n"
+					"\n"
+					"This source is distributed in the hope that it will be useful,\n"
+					"but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
+					"MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the\n"
+					"Artistic License 2.0 for more details.\n"
+					"\n"
+					"You should have received a copy of the Artistic License 2.0\n"
+					"along the source as a COPYING file. If not, obtain it from\n"
+					"http://www.perlfoundation.org/artistic_license_2_0.\n\n");
+				return 0;
+			case 'h':
+				fprintf(stderr,
+					"--------------------------------------------------------------------\n"
+					"USAGE\n"
+					"   %s [OPTIONS] { - | files }\n"
+					"\n"
+					"OPTIONS\n"
+					"   [-v]                   print version and full license information\n"
+					"   [-h]                   print usage information\n"
+					"   [-W] width             width in pixels (800)\n"
+					"   [-H] height            height in pixels (600)\n"
+					"   [-P] page-number       page number\n"
+					"   [-S] pages-per-section pages per section (15)\n"
+					"   [-F] image-format      image format (pbm)\n"
+					"   [-T] threshold         greyscale threshold (0xff)\n"
+					"   [-O] output-file       output file (out.pig)\n\n"
+					, argv[0]);
+				return 0;
+			case 'W':
+				width = atoi(optarg);
+				break;
+			case 'H':
+				height = atoi(optarg);
+				break;
+			case 'P':
+				page_number = atoi(optarg);
+				break;
+			case 'S':
+				pages_per_section = atoi(optarg);
+				break;
+			case 'T':
+				thresh = atoi(optarg);
+				break;
+			case 'F':
+				if(!strcasecmp(optarg, "png"))
+					image_format = IMAGE_FORMAT_PNG;
+				else if(!strcasecmp(optarg, "pbm"))
+					image_format = IMAGE_FORMAT_PBM;
+				break;
+			case 'O':
+				output_file = optarg;
+				break;
+			case '?':
+				if(  (optopt == 'W') || (optopt == 'H') || (optopt == 'P')
+					|| (optopt == 'S') || (optopt == 'F') || (optopt == 'T')
+					|| (optopt == 'O') )
+					fprintf(stderr, "Option `-%c' requires an argument.\n", optopt);
+				else if(isprint(optopt))
+					fprintf(stderr, "Unknown option `-%c'.\n", optopt);
+				else
+					fprintf(stderr, "Unknown option character `\\x%x'.\n", optopt);
+				return -1;
+			default:
+				return -1;
+		}
+	}
+
+	optind += 1;
+
+	const input_format_t input_format = argc > optind
+		? INPUT_FORMAT_FILE
+		: INPUT_FORMAT_STREAM;
+
+	if(input_format == INPUT_FORMAT_FILE)
+		page_number = argc - optind;
+
 	if(pages_per_section == 0)
 		pages_per_section = page_number;
-	uint32_t section_number = (page_number % pages_per_section) == 0
+
+	/*
+	printf(
+		"Width: %u\n"
+		"Height: %u\n"
+		"PageNumber#: %u\n"
+		"PagesPerSection#: %u\n"
+		"Thresh#: %u\n"
+		"Format#: %u\n"
+		"OutputFile#: %s\n",
+		width, height, page_number, pages_per_section, thresh, image_format, output_file);
+	*/
+
+	const uint32_t section_number = (page_number % pages_per_section) == 0
 		? page_number / pages_per_section
 		: page_number / pages_per_section + 1;
 
-	size_t head_size = sizeof(head_t) + section_number*sizeof(uint32_t);
+	const size_t head_size = sizeof(head_t) + section_number*sizeof(uint32_t);
 	head_t *head = malloc(head_size);
 	if(!head)
 		return -1;
 
 	strncpy(head->magic, MAGIC, 8);
 
-	size_t buflen = (width >> 3) + !!(width & 7);
+	const size_t buflen = (width >> 3) + !!(width & 7);
 	uint8_t *lines [3] = {
 		malloc(buflen),
 		malloc(buflen),
@@ -135,7 +280,7 @@ main(int argc, char **argv)
 		raw_pointers[j] = malloc(width * sizeof(uint8_t) / 8);
 	}
 
-	FILE *fout = fopen(argv[1], "wb");
+	FILE *fout = fopen(output_file, "wb");
 	if(!fout)
 		return -1;
 
@@ -144,6 +289,20 @@ main(int argc, char **argv)
 
 	uint32_t s = 0; // section number
 	uint32_t y = 0; // line number
+
+	switch(input_format)
+	{
+		case INPUT_FORMAT_FILE:
+		{
+			//FIXME
+			break;
+		}
+		case INPUT_FORMAT_STREAM:
+		{
+			//FIXME
+			break;
+		}
+	}
 
 	for(int p=0; p<page_number; p++)
 	{
@@ -168,58 +327,65 @@ main(int argc, char **argv)
 			printf("\n%i:", s-1);
 		}
 
-		if(strstr(argv[p+2], ".png"))
+		switch(image_format)
 		{
-			_read_png_file(argv[p+2], row_pointers);
-
-			for(int j=0; j<height; j++, y++)
+			case IMAGE_FORMAT_PNG:
 			{
-				uint8_t *line = lines[y % 3];
-				uint8_t *prevline = NULL;
-				uint8_t *prevprevline = NULL;
+				_read_png_file(argv[optind + p], row_pointers);
 
-				uint8_t *dst = line;
-				png_byte *row = row_pointers[j];
-				for(int x=0; x<width; x+=8, dst++)
+				for(int j=0; j<height; j++, y++)
 				{
-					png_byte *ptr = &(row[x*3]);
-					*dst = 0;
-					*dst |= (ptr[0*3] < thresh ? 1 : 0) << 7;
-					*dst |= (ptr[1*3] < thresh ? 1 : 0) << 6;
-					*dst |= (ptr[2*3] < thresh ? 1 : 0) << 5;
-					*dst |= (ptr[3*3] < thresh ? 1 : 0) << 4;
-					*dst |= (ptr[4*3] < thresh ? 1 : 0) << 3;
-					*dst |= (ptr[5*3] < thresh ? 1 : 0) << 2;
-					*dst |= (ptr[6*3] < thresh ? 1 : 0) << 1;
-					*dst |= (ptr[7*3] < thresh ? 1 : 0) << 0;
+					uint8_t *line = lines[y % 3];
+					uint8_t *prevline = NULL;
+					uint8_t *prevprevline = NULL;
+
+					uint8_t *dst = line;
+					png_byte *row = row_pointers[j];
+					for(int x=0; x<width; x+=8, dst++)
+					{
+						png_byte *ptr = &(row[x*3]);
+						*dst = 0;
+						*dst |= (ptr[0*3] < thresh ? 1 : 0) << 7;
+						*dst |= (ptr[1*3] < thresh ? 1 : 0) << 6;
+						*dst |= (ptr[2*3] < thresh ? 1 : 0) << 5;
+						*dst |= (ptr[3*3] < thresh ? 1 : 0) << 4;
+						*dst |= (ptr[4*3] < thresh ? 1 : 0) << 3;
+						*dst |= (ptr[5*3] < thresh ? 1 : 0) << 2;
+						*dst |= (ptr[6*3] < thresh ? 1 : 0) << 1;
+						*dst |= (ptr[7*3] < thresh ? 1 : 0) << 0;
+					}
+
+					if(y>0)
+						prevline = lines[(y-1) % 3];
+					if(y>1)
+						prevprevline = lines[(y-2) % 3];
+					jbg85_enc_lineout(&state, line, prevline, prevprevline);
 				}
 
-				if(y>0)
-					prevline = lines[(y-1) % 3];
-				if(y>1)
-					prevprevline = lines[(y-2) % 3];
-				jbg85_enc_lineout(&state, line, prevline, prevprevline);
+				break;
 			}
-		}
-		else if(strstr(argv[p+2], ".pbm"))
-		{
-			_read_pbm_file(argv[p+2], raw_pointers);
-
-			for(int j=0; j<height; j++, y++)
+			case IMAGE_FORMAT_PBM:
 			{
-				uint8_t *line = lines[y % 3];
-				uint8_t *prevline = NULL;
-				uint8_t *prevprevline = NULL;
+				_read_pbm_file(argv[optind + p], raw_pointers);
 
-				uint8_t *dst = line;
-				uint8_t *row = raw_pointers[j];
-				memcpy(dst, row, width/8);
+				for(int j=0; j<height; j++, y++)
+				{
+					uint8_t *line = lines[y % 3];
+					uint8_t *prevline = NULL;
+					uint8_t *prevprevline = NULL;
 
-				if(y>0)
-					prevline = lines[(y-1) % 3];
-				if(y>1)
-					prevprevline = lines[(y-2) % 3];
-				jbg85_enc_lineout(&state, line, prevline, prevprevline);
+					uint8_t *dst = line;
+					uint8_t *row = raw_pointers[j];
+					memcpy(dst, row, width/8);
+
+					if(y>0)
+						prevline = lines[(y-1) % 3];
+					if(y>1)
+						prevprevline = lines[(y-2) % 3];
+					jbg85_enc_lineout(&state, line, prevline, prevprevline);
+				}
+
+				break;
 			}
 		}
 
