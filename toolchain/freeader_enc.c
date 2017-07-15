@@ -230,7 +230,7 @@ main(int argc, char **argv)
 		}
 	}
 
-	optind += 1;
+	//optind += 1;
 
 	const input_format_t input_format = argc > optind
 		? INPUT_FORMAT_FILE
