@@ -25,7 +25,8 @@ add_definitions("-D_GNU_SOURCE=1") # asprintf
 
 set(LIBS "")
 include_directories(${PROJECT_SOURCE_DIR})
-include_directories(${PROJECT_SOURCE_DIR}/pugl)
+include_directories(${PROJECT_SOURCE_DIR}/..)
+include_directories(${PROJECT_SOURCE_DIR}/../pugl)
 
 # paths
 set(FREEADER_BIN_DIR bin)
@@ -106,7 +107,7 @@ else() # GNU/Linux
 	include_directories(${XEXT_INCLUDE_DIRS})
 	set(UI_LIBS ${UI_LIBS} ${XEXT_LDFLAGS})
 
-	set(TAR_UI ${TAR_UI} pugl/pugl/pugl_x11.c)
+	set(TAR_UI ${TAR_UI} ../pugl/pugl/pugl_x11.c)
 endif()
 
 # binary
@@ -117,4 +118,4 @@ target_link_libraries(freeader_emu ${LIBS} ${UI_LIBS})
 install(TARGETS freeader_emu DESTINATION ${FREEADER_BIN_DIR})
 
 # font
-install(FILES ${PROJECT_SOURCE_DIR}/nuklear/extra_font/Cousine-Regular.ttf DESTINATION ${FREEADER_DATA_DIR})
+install(FILES ${PROJECT_SOURCE_DIR}/../nuklear/extra_font/Cousine-Regular.ttf DESTINATION ${FREEADER_DATA_DIR})
