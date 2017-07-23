@@ -41,21 +41,10 @@ find_package(PkgConfig) # ${PKG_CONFIG_FOUND}
 pkg_search_module(LV2 REQUIRED lv2)
 include_directories(${LV2_INCLUDE_DIRS})
 
-# metadata
-include(CheckIncludeFiles)
-CHECK_INCLUDE_FILES("jack/metadata.h" JACK_HAS_METADATA_API)
-if(${JACK_HAS_METADATA_API})
-	add_definitions("-DJACK_HAS_METADATA_API")
-endif()
+# png
+pkg_search_module(PNG REQUIRED libpng)
+include_directories(${PNG_INCLUDE_DIRS})
 
-# port_rename_callback
-include(CheckLibraryExists)
-CHECK_LIBRARY_EXISTS(jack jack_set_port_rename_callback "" JACK_HAS_PORT_RENAME_CALLBACK)
-if(${JACK_HAS_PORT_RENAME_CALLBACK})
-	add_definitions("-DJACK_HAS_PORT_RENAME_CALLBACK")
-endif()
-
-set(LIBS ${LIBS} m jbig85)
 add_definitions("-DPUGL_HAVE_GL")
 
 find_package(OpenGL)
@@ -110,12 +99,16 @@ else() # GNU/Linux
 	set(TAR_UI ${TAR_UI} ../pugl/pugl/pugl_x11.c)
 endif()
 
-# binary
+# freeader_emu
 add_executable(freeader_emu
 	freeader_emu.c
 	${TAR_UI})
-target_link_libraries(freeader_emu ${LIBS} ${UI_LIBS})
+target_link_libraries(freeader_emu ${UI_LIBS} jbig85 m)
 install(TARGETS freeader_emu DESTINATION ${FREEADER_BIN_DIR})
-
-# font
 install(FILES ${PROJECT_SOURCE_DIR}/../nuklear/extra_font/Cousine-Regular.ttf DESTINATION ${FREEADER_DATA_DIR})
+
+# freeader_enc
+add_executable(freeader_enc
+	freeader_enc.c)
+target_link_libraries(freeader_enc ${PNG_LDFLAGS} jbig85)
+install(TARGETS freeader_enc DESTINATION ${FREEADER_BIN_DIR})

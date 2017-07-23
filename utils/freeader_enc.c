@@ -1,5 +1,3 @@
-#define _GNU_SOURCE
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -90,7 +88,7 @@ _read_pbm_file(const char *file_name, uint8_t **raw_pointers)
 	FILE *fp = fopen(file_name, "rb");
 
 	char fmt [128];
-	fscanf(fp, "%s\n", &fmt);
+	fscanf(fp, "%s\n", fmt);
 	if(strcmp(fmt, "P4"))
 		_abort("[read_pbm_file] File %s has not type 'P4'", file_name);
 
@@ -99,7 +97,7 @@ _read_pbm_file(const char *file_name, uint8_t **raw_pointers)
 	if( (width != 800) || (height != 600) )
 		_abort("[read_pbm_file] File %s has not expected size", file_name);
 
-	for(int j=0; j<height; j++)
+	for(unsigned j=0; j<height; j++)
 		fread(raw_pointers[j], 1, width/8, fp);
 
 	fclose(fp);
@@ -111,7 +109,7 @@ _read_pbm_stream(const char *file_name, uint8_t **raw_pointers)
 	FILE *fp = fopen(file_name, "rb");
 
 	char fmt [128];
-	fscanf(fp, "%s\n", &fmt);
+	fscanf(fp, "%s\n", fmt);
 	if(strcmp(fmt, "P4"))
 		_abort("[read_pbm_file] File %s has not type 'P4'", file_name);
 
@@ -120,7 +118,7 @@ _read_pbm_stream(const char *file_name, uint8_t **raw_pointers)
 	if( (width != 800) || (height != 600) )
 		_abort("[read_pbm_file] File %s has not expected size", file_name);
 
-	for(int j=0; j<height; j++)
+	for(unsigned j=0; j<height; j++)
 		fread(raw_pointers[j], 1, width/8, fp);
 
 	fclose(fp);
@@ -272,7 +270,7 @@ main(int argc, char **argv)
 		
 	png_bytep *row_pointers = malloc(sizeof(png_bytep) * height);
 	uint8_t **raw_pointers = malloc(sizeof(uint8_t *) * height);
-	for(int j=0; j<height; j++)
+	for(unsigned j=0; j<height; j++)
 	{
 		row_pointers[j] = malloc(width * sizeof(uint32_t));
 		raw_pointers[j] = malloc(width * sizeof(uint8_t) / 8);
@@ -302,7 +300,7 @@ main(int argc, char **argv)
 		}
 	}
 
-	for(int p=0; p<page_number; p++)
+	for(unsigned p=0; p<page_number; p++)
 	{
 		if(p % pages_per_section == 0)
 		{
@@ -331,7 +329,7 @@ main(int argc, char **argv)
 			{
 				_read_png_file(argv[optind + p], row_pointers);
 
-				for(int j=0; j<height; j++, y++)
+				for(unsigned j=0; j<height; j++, y++)
 				{
 					uint8_t *line = lines[y % 3];
 					uint8_t *prevline = NULL;
@@ -339,7 +337,7 @@ main(int argc, char **argv)
 
 					uint8_t *dst = line;
 					png_byte *row = row_pointers[j];
-					for(int x=0; x<width; x+=8, dst++)
+					for(unsigned x=0; x<width; x+=8, dst++)
 					{
 						png_byte *ptr = &(row[x*3]);
 						*dst = 0;
@@ -366,7 +364,7 @@ main(int argc, char **argv)
 			{
 				_read_pbm_file(argv[optind + p], raw_pointers);
 
-				for(int j=0; j<height; j++, y++)
+				for(unsigned j=0; j<height; j++, y++)
 				{
 					uint8_t *line = lines[y % 3];
 					uint8_t *prevline = NULL;
@@ -392,7 +390,7 @@ main(int argc, char **argv)
 	}
 	printf("\n");
 
-	for(int j=0; j<height; j++)
+	for(unsigned j=0; j<height; j++)
 	{
 		free(row_pointers[j]);
 		free(raw_pointers[j]);
