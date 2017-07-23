@@ -1,4 +1,4 @@
-CC ?= gcc
+CC ?= clang
 
 OFFSET_X := 25.4
 OFFSET_Y := 24.6
