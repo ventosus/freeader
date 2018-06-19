@@ -39,10 +39,16 @@ struct _app_t {
 	size_t cnt;
 
 	head_t *head;
+	bool dirty;
 };
 
+#if 0
 static const uint32_t fg = 0xffbbbbbb;
 static const uint32_t bg = 0xff2d2d2d;
+#else
+static const uint32_t fg = 0xff000000;
+static const uint32_t bg = 0xffeeeeee;
+#endif
 
 static const uint8_t bitmask [8] = {
 	0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01
@@ -236,7 +242,7 @@ _expose(struct nk_context *ctx, struct nk_rect wbounds, void *data)
 		nk_layout_row_static(ctx, 600.f, 800.f, 1);
 		const struct nk_rect bb = nk_widget_bounds(ctx);
 		nk_image(ctx, app->img);
-		nk_stroke_rect(canvas, bb, 10.f, 1.f, nk_rgb(0x88, 0x88, 0x88));
+		nk_stroke_rect(canvas, bb, 0.f, 1.f, nk_rgb(0x88, 0x88, 0x88));
 
 		nk_layout_row_dynamic(ctx, 20.f, 5);
 		nk_spacing(ctx, 1);
@@ -273,6 +279,16 @@ _expose(struct nk_context *ctx, struct nk_rect wbounds, void *data)
 		}
 	}
 	nk_end(ctx);
+
+	if(has_home || has_end || has_page_down || has_page_up || (scroll_delta != 0.f) )
+	{
+		nk_pugl_post_redisplay(&app->win);
+		app->dirty = true;
+	}
+	else
+	{
+		app->dirty = false;
+	}
 }
 
 int
@@ -343,12 +359,14 @@ main(int argc, char **argv)
 	_page_set(&app, page - 1);
 	_next(&app);
 
-	while(true)
+	bool done = false;
+	while(!done)
 	{
 		nk_pugl_wait_for_event(win);
 
-		if(nk_pugl_process_events(win))
-			break;
+		do {
+			done = !done ? nk_pugl_process_events(win) : done;
+		} while(app.dirty);
 	}
 
 	nk_pugl_hide(win);

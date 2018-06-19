@@ -112,3 +112,9 @@ add_executable(freeader_enc
 	freeader_enc.c)
 target_link_libraries(freeader_enc ${PNG_LDFLAGS} jbig85)
 install(TARGETS freeader_enc DESTINATION ${FREEADER_BIN_DIR})
+
+# freeader_toc
+add_executable(freeader_toc
+	freeader_toc.c)
+target_link_libraries(freeader_toc ${PNG_LDFLAGS} jbig85)
+install(TARGETS freeader_toc DESTINATION ${FREEADER_BIN_DIR})
