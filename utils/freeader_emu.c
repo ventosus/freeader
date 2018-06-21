@@ -234,7 +234,6 @@ _expose(struct nk_context *ctx, struct nk_rect wbounds, void *data)
 
 	if(nk_begin(ctx, "FreEader", wbounds, NK_WINDOW_NO_SCROLLBAR))
 	{
-		const struct nk_panel *root = nk_window_get_panel(ctx);
 		nk_window_set_bounds(ctx, wbounds);
 
 		struct nk_command_buffer *canvas = nk_window_get_canvas(ctx);
@@ -350,7 +349,7 @@ main(int argc, char **argv)
 	cfg->parent = 0;
 	cfg->data = &app;
 	cfg->expose = _expose;
-	cfg->font.face = FREEADER_DATA_DIR"Cousine-Regular.ttf";
+	cfg->font.face = NULL;
 	cfg->font.size = 13;
 
 	nk_pugl_init(win);

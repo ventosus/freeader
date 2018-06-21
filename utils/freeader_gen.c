@@ -106,7 +106,7 @@ main(int argc, char **argv)
 			for(int i=0; i<ENTRIES; i++)
 			{
 				obj[i] = edje_object_add(e);
-				if(obj)
+				if(obj[i])
 				{
 					edje_object_file_set(obj[i], "theme.edj", "/freeader/entry");
 					char *lab;

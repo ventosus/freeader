@@ -259,7 +259,7 @@ main(int argc, char **argv)
 	if(!head)
 		return -1;
 
-	strncpy(head->magic, MAGIC, 8);
+	memcpy(head->magic, MAGIC, 8);
 
 	const size_t buflen = (width >> 3) + !!(width & 7);
 	uint8_t *lines [3] = {
