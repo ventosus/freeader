@@ -71,11 +71,11 @@ zhenskoe.tex:	zhenskoe.html $(TEMPLATE)
 %.pdf:	%.tex
 	xelatex $<
 
-#menu.pig: freeader_gen theme.edj
-#	$(eval TMP := $(shell mktemp -d))
-#	freeader_gen $(TMP)/%08d.pbm
-#	freeader_enc -W $(PIXEL_X) -H $(PIXEL_Y) -F PBM -O $@ $(TMP)/????????.pbm
-#	rm -rf $(TMP)
+menu.pig: theme.edj
+	$(eval TMP := $(shell mktemp -d))
+	freeader_gen $(TMP)/tmp_%08d.pbm
+	freeader_enc -W $(PIXEL_X) -H $(PIXEL_Y) -F PBM -O $@ $(TMP)/*pbm
+	rm -rf $(TMP)
 
 # create raw bilevel image
 %.pig: %.pdf

@@ -11,7 +11,7 @@
 #include <Evas.h>
 #include <Ecore_Evas.h>
 
-#define TOGGLE
+//#define TOGGLE
 
 #if defined(TOGGLE)
 #	define ENTRIES 5
@@ -132,6 +132,11 @@ main(int argc, char **argv)
 			}
 		}
 
+		for(int j=0; j<10; j++)
+		{
+			ecore_main_loop_iterate();
+		}
+
 		const uint8_t thresh = 0x80;
 
 		for(int i=0; i<ENTRIES; i++)
@@ -139,12 +144,19 @@ main(int argc, char **argv)
 			for(int j=0; j<ENTRIES; j++)
 			{
 				if(i == j)
+				{
 					edje_object_signal_emit(obj[j], "highlight,on", "freeader");
+				}
 				else
+				{
 					edje_object_signal_emit(obj[j], "highlight,off", "freeader");
+				}
 			}
+
 			for(int j=0; j<10; j++)
+			{
 				ecore_main_loop_iterate();
+			}
 
 			const uint32_t *pixels = ecore_evas_buffer_pixels_get(ee);
 
