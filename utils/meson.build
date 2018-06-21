@@ -18,6 +18,7 @@ ecore_dep = dependency('ecore')
 ecore_evas_dep = dependency('ecore-evas')
 evas_dep = dependency('evas')
 edje_dep = dependency('edje')
+cairo_dep = dependency('cairo')
 
 ui_deps = [lv2_dep, m_dep, jbig85_dep]
 
@@ -70,6 +71,7 @@ executable('freeader_gen', 'freeader_gen.c',
 
 executable('freeader_toc', 'freeader_toc.c',
 	c_args : c_args,
+	dependencies : [cairo_dep],
 	install : true)
 
 #install_man('freeader_enc.1')

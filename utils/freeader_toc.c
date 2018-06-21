@@ -9,7 +9,16 @@
 #	include <unistd.h>
 #endif
 
+#include <cairo.h>
+
 #define MAX_PATH_LEN 1024
+
+typedef struct _app_t app_t;
+
+struct _app_t {
+	cairo_surface_t *surf;
+	cairo_t *ctx;
+};
 
 static int
 _iterate(const char *dir)
@@ -72,5 +81,37 @@ _iterate(const char *dir)
 int
 main(int argc, char **argv)
 {
+	static app_t app;
+
+	const unsigned width = 800;
+	const unsigned height = 600;
+	const unsigned stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
+
+	void *data = malloc(stride * height);
+	if(data)
+	{
+		app.surf= cairo_image_surface_create_for_data(
+			data, CAIRO_FORMAT_ARGB32, width, height, stride);
+
+		if(app.surf)
+		{
+			cairo_surface_set_device_scale(app.surf, width, height);
+
+			app.ctx = cairo_create(app.surf);
+			if(app.ctx)
+			{
+				cairo_select_font_face(app.ctx, "cairo:monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+
+				//FIXME
+
+				cairo_destroy(app.ctx);
+			}
+
+			cairo_surface_destroy(app.surf);
+		}
+
+		free(data);
+	}
+
 	return _iterate(argv[1]);
 }
