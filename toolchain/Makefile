@@ -22,7 +22,8 @@ TEMPLATE := good_4.3.tex
 BOOKS := flatland.pig
 BOOKS += voyage.pig
 BOOKS += zhenskoe.pig
-#BOOKS += menu.pig
+BOOKS += menu.pig
+BOOKS += toc.pig
 
 all: $(BOOKS)
 
@@ -73,7 +74,13 @@ zhenskoe.tex:	zhenskoe.html $(TEMPLATE)
 
 menu.pig: theme.edj
 	$(eval TMP := $(shell mktemp -d))
-	freeader_gen $(TMP)/tmp_%08d.pbm
+	freeader_gen $(TMP)/menu_%08d.pbm
+	freeader_enc -W $(PIXEL_X) -H $(PIXEL_Y) -F PBM -O $@ $(TMP)/*pbm
+	rm -rf $(TMP)
+
+toc.pig:
+	$(eval TMP := $(shell mktemp -d))
+	freeader_toc $(TMP)/toc_%08d.pbm
 	freeader_enc -W $(PIXEL_X) -H $(PIXEL_Y) -F PBM -O $@ $(TMP)/*pbm
 	rm -rf $(TMP)
 
