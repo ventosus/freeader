@@ -319,7 +319,7 @@ main(int argc, char **argv)
 
 	head_t head;
 	fread(&head, 1, sizeof(head_t), app.fin);
-	if(strncmp(head.magic, MAGIC, 8))
+	if(strncmp(head.magic, FREEADER_MAGIC, FREEADER_MAGIC_LEN))
 		return -1;
 	head.page_width = be32toh(head.page_width);
 	head.page_height = be32toh(head.page_height);
