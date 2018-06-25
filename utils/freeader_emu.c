@@ -263,6 +263,12 @@ _expose(struct nk_context *ctx, struct nk_rect wbounds, void *data)
 		else if(scroll_delta)
 			new_page -= scroll_delta;
 
+		// handle under/overflow
+		if(new_page < 1)
+			new_page = 1;
+		else if(new_page > app->head->page_number)
+			new_page = app->head->page_number;
+
 		new_page = nk_propertyi(ctx, "#", 1, new_page, app->head->page_number, 1.f, 0.f);
 
 		char maxpage [32];
