@@ -144,6 +144,8 @@ main(int argc, char **argv)
 	image_format_t image_format = IMAGE_FORMAT_PBM;
 	uint32_t page_number = 0;
 	const char *output_file = "out.pig";
+	const char *title = "Unknown";
+	const char *author = "Unknown";
 
 	fprintf(stderr,
 		"%s 0.1.0\n" //FIXME
@@ -151,7 +153,7 @@ main(int argc, char **argv)
 		"Released under Artistic License 2.0 by Open Music Kontrollers\n", argv[0]);
 	
 	int c;
-	while((c = getopt(argc, argv, "vhW:H:P:S:F:T:O:")) != -1)
+	while((c = getopt(argc, argv, "vhW:H:P:S:F:T:O:t:a:")) != -1)
 	{
 		switch(c)
 		{
@@ -186,7 +188,9 @@ main(int argc, char **argv)
 					"   [-S] pages-per-section pages per section (15)\n"
 					"   [-F] image-format      image format (pbm)\n"
 					"   [-T] threshold         greyscale threshold (0xff)\n"
-					"   [-O] output-file       output file (out.pig)\n\n"
+					"   [-O] output-file       output file (out.pig)\n"
+					"   [-t] title             set book title\n"
+					"   [-a] author            set book author\n\n"
 					, argv[0]);
 				return 0;
 			case 'W':
@@ -213,10 +217,16 @@ main(int argc, char **argv)
 			case 'O':
 				output_file = optarg;
 				break;
+			case 't':
+				title = optarg;
+				break;
+			case 'a':
+				author = optarg;
+				break;
 			case '?':
 				if(  (optopt == 'W') || (optopt == 'H') || (optopt == 'P')
 					|| (optopt == 'S') || (optopt == 'F') || (optopt == 'T')
-					|| (optopt == 'O') )
+					|| (optopt == 'O') || (optopt == 't') || (optopt == 'a') )
 					fprintf(stderr, "Option `-%c' requires an argument.\n", optopt);
 				else if(isprint(optopt))
 					fprintf(stderr, "Unknown option `-%c'.\n", optopt);
@@ -240,6 +250,8 @@ main(int argc, char **argv)
 
 	/*
 	printf(
+		"Title: %s\n"
+		"Author: %s\n"
 		"Width: %u\n"
 		"Height: %u\n"
 		"PageNumber#: %u\n"
@@ -247,7 +259,7 @@ main(int argc, char **argv)
 		"Thresh#: %u\n"
 		"Format#: %u\n"
 		"OutputFile#: %s\n",
-		width, height, page_number, pages_per_section, thresh, image_format, output_file);
+		title, author, width, height, page_number, pages_per_section, thresh, image_format, output_file);
 	*/
 
 	const uint32_t section_number = (page_number % pages_per_section) == 0
@@ -255,11 +267,13 @@ main(int argc, char **argv)
 		: page_number / pages_per_section + 1;
 
 	const size_t head_size = sizeof(head_t) + section_number*sizeof(uint32_t);
-	head_t *head = malloc(head_size);
+	head_t *head = calloc(head_size, 1);
 	if(!head)
 		return -1;
 
 	memcpy(head->magic, FREEADER_MAGIC, FREEADER_MAGIC_LEN);
+	strncpy(head->title, title, FREEADER_TITLE_LEN);
+	strncpy(head->author, author, FREEADER_AUTHOR_LEN);
 
 	const size_t buflen = (width >> 3) + !!(width & 7);
 	uint8_t *lines [3] = {
