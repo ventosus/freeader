@@ -14,10 +14,6 @@ m_dep = cc.find_library('m')
 jbig85_dep = cc.find_library('jbig85')
 lv2_dep = dependency('lv2', version : '>=1.14.0')
 png_dep = dependency('libpng')
-ecore_dep = dependency('ecore')
-ecore_evas_dep = dependency('ecore-evas')
-evas_dep = dependency('evas')
-edje_dep = dependency('edje')
 cairo_dep = dependency('cairo')
 
 ui_deps = [lv2_dep, m_dep, jbig85_dep]
@@ -64,17 +60,11 @@ executable('freeader_enc', 'freeader_enc.c',
 	dependencies : [m_dep, jbig85_dep, png_dep],
 	install : true)
 
-executable('freeader_gen', 'freeader_gen.c',
-	c_args : c_args,
-	dependencies : [ecore_dep, ecore_evas_dep, evas_dep, edje_dep],
-	install : true)
-
 executable('freeader_toc', 'freeader_toc.c',
 	c_args : c_args,
 	dependencies : [cairo_dep],
 	install : true)
 
 #install_man('freeader_enc.1')
-#install_man('freeader_gen.1')
 #install_man('freeader_emu.1')
 #install_man('freeader_toc.1')
