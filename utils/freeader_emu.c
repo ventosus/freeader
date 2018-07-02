@@ -228,8 +228,13 @@ _expose(struct nk_context *ctx, struct nk_rect wbounds, void *data)
 
 	const bool has_home = nk_input_is_key_pressed(in, NK_KEY_TEXT_LINE_START);
 	const bool has_end = nk_input_is_key_pressed(in, NK_KEY_TEXT_LINE_END);
-	const bool has_page_down = nk_input_is_key_pressed(in, NK_KEY_SCROLL_DOWN);
-	const bool has_page_up = nk_input_is_key_pressed(in, NK_KEY_SCROLL_UP);
+	const bool has_page_down = nk_input_is_key_pressed(in, NK_KEY_SCROLL_DOWN)
+		|| nk_input_is_key_pressed(in, NK_KEY_DOWN);
+	const bool has_page_up = nk_input_is_key_pressed(in, NK_KEY_SCROLL_UP)
+		|| nk_input_is_key_pressed(in, NK_KEY_UP);
+	const bool has_back = nk_input_is_key_pressed(in, NK_KEY_LEFT); //FIXME use
+	const bool has_enter = nk_input_is_key_pressed(in, NK_KEY_ENTER)
+		|| nk_input_is_key_pressed(in, NK_KEY_RIGHT); //FIXME use
 	const int scroll_delta = in->mouse.scroll_delta;
 
 	if(nk_begin(ctx, "FreEader", wbounds, NK_WINDOW_NO_SCROLLBAR))
