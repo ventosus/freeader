@@ -95,7 +95,16 @@ _render_item(cairo_t *ctx, const item_t *item, float Y, float DY, bool hi)
 
 	if(item->is_folder)
 	{
-		cairo_arc(ctx, 1.0 - DY/2 - R, Y + DY/2 + R, 2*R/3, 0, 2*M_PI);
+		const float x1 = 1.0 - DY/2;
+		const float x0 = x1 - R;
+		const float y0 = Y + DY/2;
+		const float y1 = y0 + R;
+		const float y2 = y1 + R;
+
+		cairo_move_to(ctx, x0, y0 + DY);
+		cairo_line_to(ctx, x1 - DY, y1);
+		cairo_line_to(ctx, x0, y2 - DY);
+		cairo_close_path(ctx);
 		cairo_fill(ctx);
 	}
 
@@ -244,7 +253,7 @@ _iterate(app_t *app, const char *fmt, const char *dir,
 		fprintf(stderr, ":: %s (%i)\n", data->d_name, data->d_type);
 		if(data->d_type == DT_DIR)
 		{
-			items = _item_append(items, data->d_name, "Folder", true, &num);
+			items = _item_append(items, data->d_name, "/...", true, &num);
 
 			fprintf(stderr, ":: is directory\n");
 			//_iterate(app, fmt, buffer, width, height, stride, data)
