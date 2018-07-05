@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <inttypes.h>
 #include <unistd.h>
 #include <ctype.h>
 
@@ -333,6 +334,12 @@ main(int argc, char **argv)
 
 			head->section_offset[s++] = htobe32(ftell(fout));
 			y = 0;
+
+			char link [32];
+			snprintf(link, sizeof(link), "/link/%"PRIu32, p + 1); //FIXME
+			const uint32_t len = htobe32(strlen(link));
+			fwrite(&len, sizeof(uint32_t), 1, fout);
+			fwrite(link, strlen(link), 1, fout);
 
 			printf("\n%i:", s-1);
 		}

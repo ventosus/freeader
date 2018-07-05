@@ -8,7 +8,13 @@
 #define FREEADER_TITLE_LEN 128
 #define FREEADER_AUTHOR_LEN 128
 
+typedef struct _sect_t sect_t;
 typedef struct _head_t head_t;
+
+struct _sect_t {
+	uint32_t len;
+	char link [0];
+};
 
 struct _head_t {
 	char magic [FREEADER_MAGIC_LEN];

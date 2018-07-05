@@ -75,7 +75,7 @@ zhenskoe.tex:	zhenskoe.html $(TEMPLATE)
 toc.pig:
 	$(eval TMP := $(shell mktemp -d))
 	freeader_toc $(TMP)/toc_%08d.pbm
-	freeader_enc -t 'TOC' -a 'Freeader' -W $(PIXEL_X) -H $(PIXEL_Y) -F PBM -O $@ $(TMP)/*pbm
+	freeader_enc -t 'TOC' -a 'Freeader' -W $(PIXEL_X) -H $(PIXEL_Y) -F PBM -S 1 -O $@ $(TMP)/*pbm
 	rm -rf $(TMP)
 
 # create raw bilevel image
