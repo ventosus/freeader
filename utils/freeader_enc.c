@@ -5,6 +5,7 @@
 #include <inttypes.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <assert.h>
 
 #include <freeader.h>
 #include <jbig85.h>
@@ -128,9 +129,9 @@ _read_pbm_stream(const char *file_name, uint8_t **raw_pointers)
 static void
 _out(uint8_t *start, size_t len, void *data)
 {
-	FILE *fout = data;
+	encoder_t *enc = data;
 
-	fwrite(start, 1, len, fout);
+	fwrite(start, 1, len, enc->fout);
 }
 
 int
@@ -275,6 +276,10 @@ main(int argc, char **argv)
 	memcpy(head->magic, FREEADER_MAGIC, FREEADER_MAGIC_LEN);
 	strncpy(head->title, title, FREEADER_TITLE_LEN);
 	strncpy(head->author, author, FREEADER_AUTHOR_LEN);
+	head->page_width = width;
+	head->page_height = height;
+	head->page_number = page_number;
+	head->pages_per_section = pages_per_section;
 
 	const size_t buflen = (width >> 3) + !!(width & 7);
 	uint8_t *lines [3] = {
@@ -291,12 +296,8 @@ main(int argc, char **argv)
 		raw_pointers[j] = malloc(width * sizeof(uint8_t) / 8);
 	}
 
-	FILE *fout = fopen(output_file, "wb");
-	if(!fout)
-		return -1;
-
-	//fseek(fout, head_size, SEEK_SET);
-	fwrite(head, 1, head_size, fout);
+	encoder_t enc;
+	assert(freeader_encoder_init(&enc, output_file, section_number) == 0);
 
 	uint32_t s = 0; // section number
 	uint32_t y = 0; // line number
@@ -325,21 +326,21 @@ main(int argc, char **argv)
 
 			if(p > 0)
 				jbg85_enc_newlen(&state, y);
-			jbg85_enc_init(&state, width, height * pages, _out, fout);
+			jbg85_enc_init(&state, width, height * pages, _out, &enc);
 
 			int options = JBG_TPBON;
 			unsigned long l0 = height; // use default
 			int mx = 8; // use default
 			jbg85_enc_options(&state, options, l0, mx);
 
-			head->section_offset[s++] = htobe32(ftell(fout));
+			head->section_offset[s++] = ftell(enc.fout);
 			y = 0;
 
 			char link [32];
 			snprintf(link, sizeof(link), "/link/%"PRIu32, p + 1); //FIXME
 			const uint32_t len = htobe32(strlen(link));
-			fwrite(&len, sizeof(uint32_t), 1, fout);
-			fwrite(link, strlen(link), 1, fout);
+			fwrite(&len, sizeof(uint32_t), 1, enc.fout);
+			fwrite(link, strlen(link), 1, enc.fout);
 
 			printf("\n%i:", s-1);
 		}
@@ -422,17 +423,8 @@ main(int argc, char **argv)
 	free(lines[0]);
 	free(lines[1]);
 	free(lines[2]);
-	
-	head->page_width = htobe32(width);
-	head->page_height = htobe32(height);
-	head->page_number = htobe32(page_number);
-	head->pages_per_section = htobe32(pages_per_section);
 
-
-	fseek(fout, 0, SEEK_SET);
-	fwrite(head, 1, head_size, fout);
-
-	fclose(fout);
+	freeader_encoder_deinit(&enc, head, section_number);
 
 	free(head);
 
