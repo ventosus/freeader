@@ -192,8 +192,8 @@ _item_append(item_t *items, const char *title, const char *author,
 	{
 		item_t *item = &items[*num];
 
-		strncpy(item->title, title, FREEADER_TITLE_LEN);
-		strncpy(item->author, author, FREEADER_TITLE_LEN);
+		strncpy(item->title, title, FREEADER_TITLE_LEN - 1);
+		strncpy(item->author, author, FREEADER_TITLE_LEN - 1);
 		item->is_folder = is_folder;
 
 		(*num)++;

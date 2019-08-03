@@ -13,18 +13,15 @@
 #define PNG_DEBUG 3
 #include <png.h>
 
-typedef enum _image_format_t image_format_t;
-typedef enum _input_format_t input_format_t;
-
-enum _image_format_t {
+typedef enum _image_format_t {
 	IMAGE_FORMAT_PBM,
 	IMAGE_FORMAT_PNG
-};
+} image_format_t ;
 
-enum _input_format_t {
+typedef enum _input_format_t {
 	INPUT_FORMAT_STREAM,
 	INPUT_FORMAT_FILE
-};
+} input_format_t;
 
 static void
 _abort(const char *s, ...)
