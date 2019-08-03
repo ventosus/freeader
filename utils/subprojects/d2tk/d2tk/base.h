@@ -389,7 +389,8 @@ d2tk_base_image(d2tk_base_t *base, ssize_t path_len, const char *path,
 
 D2TK_API void
 d2tk_base_bitmap(d2tk_base_t *base, uint32_t w, uint32_t h, uint32_t stride,
-	const uint32_t *argb, const d2tk_rect_t *rect, d2tk_align_t align);
+	const uint32_t *argb, uint64_t rev, const d2tk_rect_t *rect,
+	d2tk_align_t align);
 
 D2TK_API void
 d2tk_base_custom(d2tk_base_t *base, uint32_t size, const void *data,

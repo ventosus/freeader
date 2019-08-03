@@ -175,7 +175,8 @@ d2tk_core_image(d2tk_core_t *core, const d2tk_rect_t *rect, size_t sz,
 
 D2TK_API void
 d2tk_core_bitmap(d2tk_core_t *core, const d2tk_rect_t *rect, uint32_t w,
-	uint32_t h, uint32_t stride, const uint32_t *argb, d2tk_align_t align);
+	uint32_t h, uint32_t stride, const uint32_t *argb, uint64_t rev,
+	d2tk_align_t align);
 
 D2TK_API void
 d2tk_core_custom(d2tk_core_t *core, const d2tk_rect_t *rect, uint32_t size,

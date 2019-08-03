@@ -1877,13 +1877,14 @@ d2tk_base_image(d2tk_base_t *base, ssize_t path_len, const char *path,
 
 D2TK_API void
 d2tk_base_bitmap(d2tk_base_t *base, uint32_t w, uint32_t h, uint32_t stride,
-	const uint32_t *argb, const d2tk_rect_t *rect, d2tk_align_t align)
+	const uint32_t *argb, uint64_t rev, const d2tk_rect_t *rect,
+	d2tk_align_t align)
 {
 	const uint64_t hash = d2tk_hash_foreach(rect, sizeof(d2tk_rect_t),
 		&w, sizeof(uint32_t),
 		&h, sizeof(uint32_t),
 		&stride, sizeof(uint32_t),
-		argb, stride*h, //FIXME
+		&rev, sizeof(uint64_t),
 		NULL);
 
 	d2tk_core_t *core = base->core;;
@@ -1892,7 +1893,7 @@ d2tk_base_bitmap(d2tk_base_t *base, uint32_t w, uint32_t h, uint32_t stride,
 	{
 		const size_t ref = d2tk_core_bbox_push(core, true, rect);
 
-		d2tk_core_bitmap(core, rect, w, h, stride, argb, align);
+		d2tk_core_bitmap(core, rect, w, h, stride, argb, rev, align);
 
 		d2tk_core_bbox_pop(core, ref);
 	}
