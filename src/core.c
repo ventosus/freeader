@@ -381,9 +381,17 @@ _d2tk_bitmap_reset(d2tk_core_t *core)
 {
 	d2tk_bitmap_t *bitmap = &core->bitmap;
 
-	const size_t stride = (bitmap->x1 - bitmap->x0)*sizeof(uint32_t);
+	// x1/y1 may be wrong after window shrink
+	const d2tk_coord_t x1 = bitmap->x1 < core->w
+		? bitmap->x1
+		: core->w;
+	const d2tk_coord_t y1 = bitmap->y1 < core->h
+		? bitmap->y1
+		: core->h;
 
-	for(d2tk_coord_t y = bitmap->y0, Y = y*core->w; y < bitmap->y1; y++, Y+=core->w)
+	const size_t stride = (x1 - bitmap->x0)*sizeof(uint32_t);
+
+	for(d2tk_coord_t y = bitmap->y0, Y = y*core->w; y < y1; y++, Y+=core->w)
 	{
 		memset(&bitmap->pixels[Y + bitmap->x0], 0x0, stride);
 	}
@@ -1090,7 +1098,8 @@ d2tk_core_image(d2tk_core_t *core, const d2tk_rect_t *rect, size_t sz,
 
 D2TK_API void
 d2tk_core_bitmap(d2tk_core_t *core, const d2tk_rect_t *rect, uint32_t w,
-	uint32_t h, uint32_t stride, const uint32_t *argb, d2tk_align_t align)
+	uint32_t h, uint32_t stride, const uint32_t *argb, uint64_t rev,
+	d2tk_align_t align)
 {
 	const size_t len = sizeof(d2tk_body_bitmap_t);
 	d2tk_body_t *body = _d2tk_append_request(core, len, D2TK_INSTR_BITMAP);
@@ -1106,6 +1115,7 @@ d2tk_core_bitmap(d2tk_core_t *core, const d2tk_rect_t *rect, uint32_t w,
 		body->bitmap.surf.h = h;
 		body->bitmap.surf.stride = stride;
 		body->bitmap.surf.argb = argb;
+		body->bitmap.surf.rev = rev;
 
 		body->bitmap.x -= core->ref.x;
 		body->bitmap.y -= core->ref.y;

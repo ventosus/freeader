@@ -1419,8 +1419,10 @@ _test_bitmap()
 		0xff0000ff, 0x00ff001f,
 		0x0000ff7f, 0xffff003f
 	};
+	const uint64_t rev = 0;
 
-	d2tk_base_bitmap(base, 2, 2, 2*sizeof(uint32_t), bmp, &rect, D2TK_ALIGN_CENTERED);
+	d2tk_base_bitmap(base, 2, 2, 2*sizeof(uint32_t), bmp, rev, &rect,
+		D2TK_ALIGN_CENTERED);
 
 	d2tk_base_free(base);
 }

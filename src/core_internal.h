@@ -54,6 +54,7 @@ typedef struct _d2tk_body_font_face_t d2tk_body_font_face_t;
 typedef struct _d2tk_body_font_size_t d2tk_body_font_size_t;
 typedef struct _d2tk_body_text_t d2tk_body_text_t;
 typedef struct _d2tk_body_image_t d2tk_body_image_t;
+typedef struct _d2tk_body_bitmap_surf_t d2tk_body_bitmap_surf_t;
 typedef struct _d2tk_body_bitmap_t d2tk_body_bitmap_t;
 typedef struct _d2tk_body_custom_t d2tk_body_custom_t;
 typedef struct _d2tk_body_stroke_width_t d2tk_body_stroke_width_t;
@@ -167,18 +168,21 @@ struct _d2tk_body_image_t {
 	char path [1]; // at least zero-terminator
 };
 
+struct _d2tk_body_bitmap_surf_t {
+	uint32_t w;
+	uint32_t h;
+	uint32_t stride;
+	const uint32_t *argb;
+	uint64_t rev;
+};
+
 struct _d2tk_body_bitmap_t {
 	d2tk_coord_t x;
 	d2tk_coord_t y;
 	d2tk_coord_t w;
 	d2tk_coord_t h;
 	d2tk_align_t align;
-	struct {
-		uint32_t w;
-		uint32_t h;
-		uint32_t stride;
-		const uint32_t *argb;
-	} surf;
+	d2tk_body_bitmap_surf_t surf;
 };
 
 struct _d2tk_body_custom_t {

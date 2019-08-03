@@ -223,8 +223,9 @@ _render_c_mix(d2tk_base_t *base, const d2tk_rect_t *rect)
 					0xffffcf00, 0x7f7f6700,
 					0x7f7f6700, 0x00000000
 				};
+				static const uint64_t rev = 0;
 
-				d2tk_base_bitmap(base, 2, 2, 2*sizeof(uint32_t), argb, bnd,
+				d2tk_base_bitmap(base, 2, 2, 2*sizeof(uint32_t), argb, rev, bnd,
 					D2TK_ALIGN_CENTERED);
 			} break;
 			default:

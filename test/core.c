@@ -1213,8 +1213,10 @@ _test_bitmap()
 		}
 	}
 
+	const uint64_t rev = 0;
+
 	d2tk_core_bitmap(core, &D2TK_RECT(BITMAP_X, BITMAP_Y, BITMAP_W, BITMAP_H),
-		BITMAP_WIDTH, BITMAP_HEIGHT, BITMAP_STRIDE, surf, BITMAP_ALIGN);
+		BITMAP_WIDTH, BITMAP_HEIGHT, BITMAP_STRIDE, surf, rev, BITMAP_ALIGN);
 
 	d2tk_core_bbox_pop(core, ref);
 	d2tk_core_post(core);

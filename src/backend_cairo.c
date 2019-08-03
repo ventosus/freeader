@@ -694,8 +694,7 @@ d2tk_cairo_process(void *data, d2tk_core_t *core, const d2tk_com_t *com,
 		{
 			const d2tk_body_bitmap_t *body = &com->body->bitmap;
 
-			const size_t rgba_sz = body->surf.stride * body->surf.h;
-			const uint64_t hash = d2tk_hash(body->surf.argb, rgba_sz);
+			const uint64_t hash = d2tk_hash(&body->surf, sizeof(body->surf));
 			uintptr_t *sprite = d2tk_core_get_sprite(core, hash, SPRITE_TYPE_SURF);
 			assert(sprite);
 
