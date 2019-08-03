@@ -1,25 +1,27 @@
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <math.h>
 #include <limits.h>
-#include <lv2/lv2plug.in/ns/extensions/ui/ui.h>
 
 #include <freeader.h>
 #include <jbig85.h>
 
-#define NK_PUGL_IMPLEMENTATION
-#include <nk_pugl/nk_pugl.h>
+#include <d2tk/frontend_pugl.h>
 
 #define WIDTH 800
 #define HEIGHT 600
+#define STRIDE (WIDTH * sizeof(uint32_t))
+#define FOOTER 24
 #define BUFSZ (WIDTH * HEIGHT / 8)
 
 typedef struct _app_t app_t;
 
 struct _app_t {
-	nk_pugl_window_t win;
+	d2tk_pugl_config_t config;
+	d2tk_pugl_t *dpugl;
 
 	uint32_t argb [800*600];
-	struct nk_image img;
 
 	float scale;
 	unsigned page;
@@ -54,52 +56,9 @@ static const uint8_t bitmask [8] = {
 	0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01
 };
 
-static struct nk_image
-_page_load(nk_pugl_window_t *win, int w, int h, uint32_t *data)
-{
-	GLuint tex = 0;
-
-	if(!win->view)
-		return nk_image_id(tex);
-
-	puglEnterContext(win->view);
-	{
-		glGenTextures(1, &tex);
-		glBindTexture(GL_TEXTURE_2D, tex);
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		if(!win->glGenerateMipmap) // for GL >= 1.4 && < 3.1
-			glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-		if(win->glGenerateMipmap) // for GL >= 3.1
-			win->glGenerateMipmap(GL_TEXTURE_2D);
-	}
-	puglLeaveContext(win->view, false);
-
-	return nk_image_id(tex);
-}
-
-static void
-_page_unload(nk_pugl_window_t *win, struct nk_image img)
-{
-	if(!win->view)
-		return;
-
-	if(img.handle.id)
-	{
-		puglEnterContext(win->view);
-		{
-			glDeleteTextures(1, (const GLuint *)&img.handle.id);
-		}
-		puglLeaveContext(win->view, false);
-	}
-}
-
 static int
-_out(const struct jbg85_dec_state *state, uint8_t *start, size_t len,
-	unsigned long y, void *data)
+_out(const struct jbg85_dec_state *state __attribute__((unused)),
+	uint8_t *start, size_t len, unsigned long y, void *data)
 {
 	app_t *app = data;
 	//printf("_out: %lu %lu %lu\n", y, app->ymin, app->ymax);
@@ -143,21 +102,24 @@ _page_set(app_t *app, unsigned page)
 	{
 		app->page = page;
 
-		app->ymin = (app->page % app->head->pages_per_section) * app->head->page_height;
+		app->ymin = (app->page % app->head->pages_per_section)
+			* app->head->page_height;
 		app->ymax = app->ymin + app->head->page_height;
 
-		//printf("advance: %u %u %lu %lu\n", app->page, app->section, app->ymin, app->ymax);
+		//printf("advance: %u %u %lu %lu\n", app->page, app->section,
+		//	app->ymin, app->ymax);
 	}
 	else 
 	{
 		app->page = page;
 		app->section = app->page / app->head->pages_per_section;
 
-		app->ymin = (app->page % app->head->pages_per_section) * app->head->page_height;
+		app->ymin = (app->page % app->head->pages_per_section)
+			* app->head->page_height;
 		app->ymax = app->ymin + app->head->page_height;
 		
-		//printf("seek: %u %u %lu %lu %u\n", app->page, app->section, app->ymin, app->ymax,
-		//	app->head->section_offset[app->section]);
+		//printf("seek: %u %u %lu %lu %u\n", app->page, app->section,
+		//	app->ymin, app->ymax, app->head->section_offset[app->section]);
 
 		app->len = 0;
 		app->cnt = 0;
@@ -169,27 +131,26 @@ _page_set(app_t *app, unsigned page)
 static void
 _next(app_t *app)
 {
-	int result;
-	size_t cnt2;
-
 	// process remaining bytes from input buffer
 	while(app->cnt != app->len)
 	{
-		result = jbg85_dec_in(&app->state, app->inbuf + app->cnt,
+		size_t cnt2;
+		const int result = jbg85_dec_in(&app->state, app->inbuf + app->cnt,
 			app->len - app->cnt, &cnt2);
 		app->cnt += cnt2;
 		//printf("oldlen: %i %zu %zu\n", result, app->len, app->cnt);
 
 		if(result == JBG_EOK_INTR)
 		{
-			_page_unload(&app->win, app->img);
-			app->img = _page_load(&app->win, WIDTH, HEIGHT, app->argb);
+			d2tk_pugl_redisplay(app->dpugl);
 
 			return;
 		}
 
     if(result != JBG_EAGAIN)
+		{
       break;
+		}
 	}
 
 	// load new chunk to input buffer
@@ -198,21 +159,23 @@ _next(app_t *app)
 		app->cnt = 0;
 		while(app->cnt != app->len)
 		{
-			result = jbg85_dec_in(&app->state, app->inbuf + app->cnt,
+			size_t cnt2;
+			const int result = jbg85_dec_in(&app->state, app->inbuf + app->cnt,
 				app->len - app->cnt, &cnt2);
 			app->cnt += cnt2;
 			//printf("newlen: %i %zu %zu\n", result, app->len, app->cnt);
 
 			if(result == JBG_EOK_INTR)
 			{
-				_page_unload(&app->win, app->img);
-				app->img = _page_load(&app->win, WIDTH, HEIGHT, app->argb);
+				d2tk_pugl_redisplay(app->dpugl);
 
 				return;
 			}
 
 			if(result != JBG_EAGAIN)
+			{
 				break;
+			}
 		}
   }
 
@@ -220,84 +183,129 @@ _next(app_t *app)
 }
 
 static void
-_expose(struct nk_context *ctx, struct nk_rect wbounds, void *data)
+_expose_page(app_t *app, const d2tk_rect_t *rect)
 {
-	app_t *app = data;
+	d2tk_base_t *base = d2tk_pugl_get_base(app->dpugl);
 
-	struct nk_input *in = &ctx->input;
+	d2tk_base_bitmap(base, WIDTH, HEIGHT, STRIDE, app->argb, app->page, rect,
+		D2TK_ALIGN_CENTERED);
+}
 
-	const bool has_home = nk_input_is_key_pressed(in, NK_KEY_TEXT_LINE_START);
-	const bool has_end = nk_input_is_key_pressed(in, NK_KEY_TEXT_LINE_END);
-	const bool has_page_down = nk_input_is_key_pressed(in, NK_KEY_SCROLL_DOWN);
-	const bool has_page_up = nk_input_is_key_pressed(in, NK_KEY_SCROLL_UP);
-	const int scroll_delta = in->mouse.scroll_delta;
+static void
+_expose_footer(app_t *app, const d2tk_rect_t *rect)
+{
+	d2tk_base_t *base = d2tk_pugl_get_base(app->dpugl);
 
-	if(nk_begin(ctx, "FreEader", wbounds, NK_WINDOW_NO_SCROLLBAR))
+	const int32_t old_page = app->page + 1;
+	int32_t new_page = old_page;
+
+	const d2tk_coord_t hfrac [6] = { 1, 1, 1, 1, 1, 1 };
+	D2TK_BASE_LAYOUT(rect, 6, hfrac, D2TK_FLAG_LAYOUT_X_REL, lay)
 	{
-		nk_window_set_bounds(ctx, wbounds);
+		const d2tk_rect_t *hrect = d2tk_layout_get_rect(lay);
+		const unsigned k = d2tk_layout_get_index(lay);
 
-		struct nk_command_buffer *canvas = nk_window_get_canvas(ctx);
-
-		nk_layout_row_static(ctx, 600.f, 800.f, 1);
-		const struct nk_rect bb = nk_widget_bounds(ctx);
-		nk_image(ctx, app->img);
-		nk_stroke_rect(canvas, bb, 0.f, 1.f, nk_rgb(0x88, 0x88, 0x88));
-
-		nk_layout_row_dynamic(ctx, 20.f, 5);
-		nk_spacing(ctx, 1);
-
-		const int old_page = app->page + 1;
-		int new_page = old_page;
-
-		if(nk_button_label(ctx, "1"))
-			new_page = 1;
-
-		if(has_home)
-			new_page = 1;
-		else if(has_end)
-			new_page = app->head->page_number;
-		else if(has_page_down)
-			new_page += 1;
-		else if(has_page_up)
-			new_page -= 1;
-		else if(scroll_delta)
-			new_page -= scroll_delta;
-
-		// handle under/overflow
-		if(new_page < 1)
-			new_page = 1;
-		else if(new_page > app->head->page_number)
-			new_page = app->head->page_number;
-
-		new_page = nk_propertyi(ctx, "#", 1, new_page, app->head->page_number, 1.f, 0.f);
-
-		char maxpage [32];
-		snprintf(maxpage, 32, "%i", app->head->page_number);
-		if(nk_button_label(ctx, maxpage))
-			new_page = app->head->page_number;
-
-		if(new_page != old_page)
+		switch(k)
 		{
-			app->page = new_page - 1;
-			_page_set(app, app->page);
-			_next(app);
+			case 0:
+			{
+				if(d2tk_base_button_label_is_changed(base, D2TK_ID, -1, "Home",
+					D2TK_ALIGN_CENTERED, hrect))
+				{
+					new_page = 1;
+				}
+			} break;
+			case 1:
+			{
+				if(d2tk_base_button_label_is_changed(base, D2TK_ID, -1, "Prev",
+					D2TK_ALIGN_CENTERED, hrect)
+					|| d2tk_base_get_left(base)
+					|| d2tk_base_get_up(base) )
+				{
+					new_page -= 1;
+				}
+			} break;
+			case 2:
+			{
+				if(d2tk_base_button_label_is_changed(base, D2TK_ID, -1, "Next",
+					D2TK_ALIGN_CENTERED, hrect)
+					|| d2tk_base_get_right(base)
+					|| d2tk_base_get_down(base) )
+				{
+					new_page += 1;
+				}
+			} break;
+			case 3:
+			{
+				if(d2tk_base_button_label_is_changed(base, D2TK_ID, -1, "End",
+					D2TK_ALIGN_CENTERED, hrect))
+				{
+					new_page = app->head->page_number;
+				}
+			} break;
+			case 4:
+			{
+				d2tk_base_prop_int32(base, D2TK_ID, hrect,
+					1, &new_page, app->head->page_number);
+			} break;
+			case 5:
+			{
+				d2tk_base_label(base, -1, "Freeader", 1.f, hrect,
+					D2TK_ALIGN_MIDDLE | D2TK_ALIGN_RIGHT);
+			} break;
 		}
 	}
-	nk_end(ctx);
 
-	if(has_home || has_end || has_page_down || has_page_up || (scroll_delta != 0.f) )
+	// handle under/overflow
+	if(new_page < 1)
 	{
-		nk_pugl_post_redisplay(&app->win);
-		app->dirty = true;
+		new_page = 1;
 	}
-	else
+	else if(new_page > (int)app->head->page_number)
 	{
-		app->dirty = false;
+		new_page = app->head->page_number;
+	}
+
+	if(new_page != old_page)
+	{
+		app->page = new_page - 1;
+
+		_page_set(app, app->page);
+		_next(app);
 	}
 }
 
+static int
+_expose(void *data, d2tk_coord_t w, d2tk_coord_t h)
+{
+	app_t *app = data;
+
+	const d2tk_rect_t rect = D2TK_RECT(0, 0, w, h);
+
+	const d2tk_coord_t vfrac [2] = { h - FOOTER, FOOTER };
+	D2TK_BASE_LAYOUT(&rect, 2, vfrac, D2TK_FLAG_LAYOUT_Y_ABS, lay)
+	{
+		const d2tk_rect_t *vrect = d2tk_layout_get_rect(lay);
+		const unsigned k = d2tk_layout_get_index(lay);
+
+		switch(k)
+		{
+			case 0:
+			{
+				_expose_page(app, vrect);
+			} break;
+			case 1:
+			{
+				_expose_footer(app, vrect);
+			} break;
+		}
+	}
+
+	return 0;
+}
+
 int
-main(int argc, char **argv)
+main(int argc __attribute__((unused)), char **argv)
 {
 	static app_t app;
 
@@ -305,22 +313,31 @@ main(int argc, char **argv)
 	app.section = UINT_MAX;
 
 	if(!argv[1])
+	{
 		return -1;
+	}
 
 	int page = 1;
 	if(argv[2])
+	{
 		page = atoi(argv[2]);
+	}
 
 	app.scale = 1.f; //DPI_SCREEN / DPI_DISPLAY;
 
 	app.fin = fopen(argv[1], "rb");
 	if(!app.fin)
+	{
 		return -1;
+	}
 
 	head_t head;
 	fread(&head, 1, sizeof(head_t), app.fin);
 	if(strncmp(head.magic, FREEADER_MAGIC, FREEADER_MAGIC_LEN))
+	{
 		return -1;
+	}
+
 	head.page_width = be32toh(head.page_width);
 	head.page_height = be32toh(head.page_height);
 	head.page_number = be32toh(head.page_number);
@@ -334,7 +351,9 @@ main(int argc, char **argv)
 	memcpy(app.head, &head, sizeof(head));
 	fread(app.head->section_offset, 1, offset_size, app.fin);
 	for(unsigned s=0; s<section_number; s++)
+	{
 		app.head->section_offset[s] = be32toh(app.head->section_offset[s]);
+	}
 
   app.inbuflen = 256 * 1024; //TODO
   app.outbuflen = ((head.page_width >> 3) + !!(head.page_width & 7)) * 3;
@@ -342,47 +361,50 @@ main(int argc, char **argv)
 	app.inbuf = malloc(app.inbuflen);
 	app.outbuf = malloc(app.outbuflen);
 
-	nk_pugl_window_t *win = &app.win;
-	nk_pugl_config_t *cfg = &win->cfg;
+	const d2tk_coord_t w = WIDTH;
+	const d2tk_coord_t h = HEIGHT + FOOTER;
 
-	cfg->width = WIDTH + 15;
-	cfg->height = HEIGHT + 35;
-	cfg->resizable = false;
-	cfg->fixed_aspect = true;
-	cfg->ignore = false;
-	cfg->class = "freeader";
-	cfg->title = "FreEader";
-	cfg->parent = 0;
-	cfg->data = &app;
-	cfg->expose = _expose;
-	cfg->font.face = NULL;
-	cfg->font.size = 13;
+	d2tk_pugl_config_t *config = &app.config;
+	config->parent = 0;
+	config->bundle_path = "/usr/local/share/freeader/"; //FIXME
+	config->min_w = w/2;
+	config->min_h = h/2;
+	config->w = w;
+	config->h = h;
+	config->fixed_size = false;
+	config->fixed_aspect = false;
+	config->expose = _expose;
+	config->data = &app;
 
-	nk_pugl_init(win);
-	nk_pugl_show(win);
+	uintptr_t widget;
+	app.dpugl = d2tk_pugl_new(config, &widget);
+	if(!app.dpugl)
+	{
+		return -1;
+	}
 
 	_page_set(&app, page - 1);
 	_next(&app);
 
-	bool done = false;
-	while(!done)
-	{
-		nk_pugl_wait_for_event(win);
+	sig_atomic_t done = 0; //FIXME
+	d2tk_pugl_run(app.dpugl, &done);
 
-		do {
-			done = !done ? nk_pugl_process_events(win) : done;
-		} while(app.dirty);
-	}
-
-	nk_pugl_hide(win);
-	nk_pugl_shutdown(win);
+	d2tk_pugl_free(app.dpugl);
 
 	if(app.head)
+	{
 		free(app.head);
+	}
+
 	if(app.inbuf)
+	{
 		free(app.inbuf);
+	}
+
 	if(app.outbuf)
+	{
 		free(app.outbuf);
+	}
 
 	return 0;
 }
