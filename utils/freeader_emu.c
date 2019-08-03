@@ -125,6 +125,24 @@ _page_set(app_t *app, unsigned page)
 		app->cnt = 0;
 		jbg85_dec_init(&app->state, app->outbuf, app->outbuflen, _out, app);
 		fseek(app->fin, app->head->section_offset[app->section], SEEK_SET);
+
+		uint32_t len;
+		fread(&len, sizeof(uint32_t), 1, app->fin);
+		len = be32toh(len);
+		if(len > 0)
+		{
+			char *link = alloca(len + 1);
+			if(link)
+			{
+				fread(link, len, 1, app->fin);
+				link[len] = '\0';
+				fprintf(stdout, "link: %s\n", link);
+			}
+			else
+			{
+				fseek(app->fin, len, SEEK_CUR);
+			}
+		}
 	}
 }
 

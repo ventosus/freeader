@@ -72,16 +72,10 @@ zhenskoe.tex:	zhenskoe.html $(TEMPLATE)
 %.pdf:	%.tex
 	xelatex $<
 
-menu.pig: theme.edj
-	$(eval TMP := $(shell mktemp -d))
-	freeader_gen $(TMP)/menu_%08d.pbm
-	freeader_enc -t 'Menu' -a 'Freeader' -W $(PIXEL_X) -H $(PIXEL_Y) -F PBM -O $@ $(TMP)/*pbm
-	rm -rf $(TMP)
-
 toc.pig:
 	$(eval TMP := $(shell mktemp -d))
 	freeader_toc $(TMP)/toc_%08d.pbm
-	freeader_enc -t 'TOC' -a 'Freeader' -W $(PIXEL_X) -H $(PIXEL_Y) -F PBM -O $@ $(TMP)/*pbm
+	freeader_enc -t 'TOC' -a 'Freeader' -W $(PIXEL_X) -H $(PIXEL_Y) -F PBM -S 1 -O $@ $(TMP)/*pbm
 	rm -rf $(TMP)
 
 # create raw bilevel image
@@ -97,9 +91,6 @@ toc.pig:
 #	dvipng --gamma 1.0 -z 1 -D $(DPI) -T $(WIDTH)mm,$(HEIGHT)mm -O $(OFFSET_X)mm,$(OFFSET_Y)mm -o $(TMP)/%08d.png $<
 #	freeader_enc -t $< -a 'Freeader' -W $(PIXEL_X) -H $(PIXEL_Y) -F PNG -O $@ $(TMP)/????????.png
 #	rm -rf $(TMP)
-
-theme.edj: theme.edc
-	edje_cc -fd ./ -id ./ $< $@
 
 clean: 
 	rm -f *.html *.dvi *.pdf *.aux *.log *.out *.pig
