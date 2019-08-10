@@ -21,8 +21,7 @@ struct _head_t {
 	uint32_t page_width;
 	uint32_t page_height;
 	uint32_t page_number; 
-	uint32_t pages_per_section;
-	uint32_t section_offset [];
+	uint32_t page_offset [];
 } __attribute__((packed));
 
 struct _encoder_t {
@@ -34,7 +33,7 @@ struct _decoder {
 };
 
 static int
-freeader_encoder_init(encoder_t *enc, const char *path, uint32_t section_number)
+freeader_encoder_init(encoder_t *enc, const char *path, uint32_t page_number)
 {
 	memset(enc, 0x0, sizeof(encoder_t));
 
@@ -44,29 +43,31 @@ freeader_encoder_init(encoder_t *enc, const char *path, uint32_t section_number)
 		return -1;
 	}
 
-	fseek(enc->fout, sizeof(head_t) + section_number*sizeof(uint32_t), SEEK_SET);
+	const size_t header_sz = sizeof(head_t) + page_number*sizeof(uint32_t);
+	fseek(enc->fout, header_sz, SEEK_SET);
 
 	return 0;
 }
 
 static int
-freeader_encoder_deinit(encoder_t *enc, head_t *head, uint32_t section_number)
+freeader_encoder_deinit(encoder_t *enc, head_t *head)
 {
 	head_t behead = *head;
+
+	const uint32_t page_number = behead.page_number;
 
 	behead.page_width = htobe32(behead.page_width);
 	behead.page_height = htobe32(behead.page_height);
 	behead.page_number = htobe32(behead.page_number);
-	behead.pages_per_section = htobe32(behead.pages_per_section);
 
 	fseek(enc->fout, 0, SEEK_SET);
 	fwrite(&behead, sizeof(head_t), 1, enc->fout);
 
-	for(unsigned s = 0; s < section_number; s++)
+	for(uint32_t p = 0; p < page_number; p++)
 	{
-		const uint32_t section_offset = htobe32(head->section_offset[s]);
+		const uint32_t page_offset = htobe32(head->page_offset[p]);
 
-		fwrite(&section_offset, sizeof(uint32_t), 1, enc->fout);
+		fwrite(&page_offset, sizeof(uint32_t), 1, enc->fout);
 	}
 
 	fclose(enc->fout);

@@ -18,10 +18,22 @@ typedef enum _image_format_t {
 	IMAGE_FORMAT_PNG
 } image_format_t ;
 
-typedef enum _input_format_t {
-	INPUT_FORMAT_STREAM,
-	INPUT_FORMAT_FILE
-} input_format_t;
+typedef struct _app_t app_t;
+
+struct _app_t {
+	uint32_t width;
+	uint32_t height;
+	uint32_t page_number;
+
+	head_t *head;
+
+	uint8_t *lines [3];
+
+	png_bytep *row_pointers;
+	uint8_t **raw_pointers;
+
+	encoder_t enc;
+};
 
 static void
 _abort(const char *s, ...)
@@ -35,7 +47,8 @@ _abort(const char *s, ...)
 }
 
 static void
-_read_png_file(const char *file_name, png_bytep *row_pointers)
+_read_png_file(app_t *app __attribute__((unused)), const char *file_name,
+	png_bytep *row_pointers)
 {
 	png_structp png_ptr;
 	png_infop info_ptr;
@@ -45,23 +58,33 @@ _read_png_file(const char *file_name, png_bytep *row_pointers)
 	/* open file and test for it being a png */
 	FILE *fp = fopen(file_name, "rb");
 	if(!fp)
+	{
 		_abort("[read_png_file] File %s could not be opened for reading", file_name);
+	}
 	fread(header, 1, 8, fp);
 	if(png_sig_cmp(header, 0, 8))
+	{
 		_abort("[read_png_file] File %s is not recognized as a PNG file", file_name);
+	}
 		
 	/* initialize stuff */
 	png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
 	
 	if(!png_ptr)
+	{
 		_abort("[read_png_file] png_create_read_struct failed");
+	}
 		
 	info_ptr = png_create_info_struct(png_ptr);
 	if(!info_ptr)
+	{
 		_abort("[read_png_file] png_create_info_struct failed");
+	}
 		
 	if(setjmp(png_jmpbuf(png_ptr)))
+	{
 		_abort("[read_png_file] Error during init_io");
+	}
 		
 	png_init_io(png_ptr, fp);
 	png_set_sig_bytes(png_ptr, 8);
@@ -74,7 +97,9 @@ _read_png_file(const char *file_name, png_bytep *row_pointers)
 	
 	/* read file */
 	if(setjmp(png_jmpbuf(png_ptr)))
+	{
 		_abort("[read_png_file] Error during read_image");
+	}
 		
 	png_read_image(png_ptr, row_pointers);
 	
@@ -82,43 +107,28 @@ _read_png_file(const char *file_name, png_bytep *row_pointers)
 }
 
 static void
-_read_pbm_file(const char *file_name, uint8_t **raw_pointers)
+_read_pbm_file(app_t *app, const char *file_name, uint8_t **raw_pointers)
 {
 	FILE *fp = fopen(file_name, "rb");
 
 	char fmt [128];
 	fscanf(fp, "%s\n", fmt);
 	if(strcmp(fmt, "P4"))
+	{
 		_abort("[read_pbm_file] File %s has not type 'P4'", file_name);
+	}
 
-	unsigned int width, height;
-	fscanf(fp, "%u %u\n", &width, &height);
-	if( (width != 800) || (height != 600) )
+	uint32_t width, height;
+	fscanf(fp, "%"SCNu32" %"SCNu32"\n", &width, &height);
+	if( (width != app->width) || (height != app->height) )
+	{
 		_abort("[read_pbm_file] File %s has not expected size", file_name);
+	}
 
-	for(unsigned j=0; j<height; j++)
+	for(uint32_t j = 0; j < height; j++)
+	{
 		fread(raw_pointers[j], 1, width/8, fp);
-
-	fclose(fp);
-}
-
-static void
-_read_pbm_stream(const char *file_name, uint8_t **raw_pointers)
-{
-	FILE *fp = fopen(file_name, "rb");
-
-	char fmt [128];
-	fscanf(fp, "%s\n", fmt);
-	if(strcmp(fmt, "P4"))
-		_abort("[read_pbm_file] File %s has not type 'P4'", file_name);
-
-	unsigned int width, height;
-	fscanf(fp, "%u %u\n", &width, &height);
-	if( (width != 800) || (height != 600) )
-		_abort("[read_pbm_file] File %s has not expected size", file_name);
-
-	for(unsigned j=0; j<height; j++)
-		fread(raw_pointers[j], 1, width/8, fp);
+	}
 
 	fclose(fp);
 }
@@ -126,22 +136,121 @@ _read_pbm_stream(const char *file_name, uint8_t **raw_pointers)
 static void
 _out(uint8_t *start, size_t len, void *data)
 {
-	encoder_t *enc = data;
+	app_t *app = data;
 
-	fwrite(start, 1, len, enc->fout);
+	fwrite(start, 1, len, app->enc.fout);
+}
+
+static void
+_app_free(app_t *app)
+{
+	if(!app)
+	{
+		return;
+	}
+
+	freeader_encoder_deinit(&app->enc, app->head);
+
+	for(uint32_t j = 0; j < app->height; j++)
+	{
+		free(app->row_pointers[j]);
+		free(app->raw_pointers[j]);
+	}
+	free(app->row_pointers);
+	free(app->raw_pointers);
+
+	for(uint8_t l = 0; l < 3; l++)
+	{
+		free(app->lines[l]);
+	}
+
+	free(app->head);
+
+	free(app);
+}
+
+static app_t *
+_app_new(uint32_t width, uint32_t height, uint32_t page_number,
+	const char *title, const char *author, const char *output_file)
+{
+	app_t *app = calloc(1, sizeof(app_t));
+	if(!app)
+	{
+		return NULL;
+	}
+
+	app->width = width;
+	app->height = height;
+	app->page_number = page_number;
+
+	const size_t head_size = sizeof(head_t) + page_number*sizeof(uint32_t);
+	app->head = calloc(head_size, 1);
+	if(!app->head)
+	{
+		goto fail;
+	}
+
+	memcpy(app->head->magic, FREEADER_MAGIC, FREEADER_MAGIC_LEN);
+	strncpy(app->head->title, title, FREEADER_TITLE_LEN);
+	strncpy(app->head->author, author, FREEADER_AUTHOR_LEN);
+	app->head->page_width = width;
+	app->head->page_height = height;
+	app->head->page_number = page_number;
+
+	const size_t buflen = (width >> 3) + !!(width & 7);
+	for(uint8_t l = 0; l < 3; l++)
+	{
+		app->lines[l] = malloc(buflen);
+		if(!app->lines[l])
+		{
+			goto fail;
+		}
+	}
+
+	app->row_pointers = malloc(sizeof(png_bytep) * height);
+	if(!app->row_pointers)
+	{
+		goto fail;
+	}
+
+	app->raw_pointers = malloc(sizeof(uint8_t *) * height);
+	if(!app->raw_pointers)
+	{
+		goto fail;
+	}
+
+	for(uint32_t j = 0; j < height; j++)
+	{
+		app->row_pointers[j] = malloc(width * sizeof(uint32_t));
+		if(!app->row_pointers[j])
+		{
+			goto fail;
+		}
+
+		app->raw_pointers[j] = malloc(width * sizeof(uint8_t) / 8);
+		if(!app->raw_pointers[j])
+		{
+			goto fail;
+		}
+	}
+
+	assert(freeader_encoder_init(&app->enc, output_file, page_number) == 0);
+
+	return app;
+
+fail:
+	_app_free(app);
+
+	return NULL;
 }
 
 int
 main(int argc, char **argv)
 {
-	struct jbg85_enc_state state;
-
 	uint32_t width = 800;
 	uint32_t height = 600;
-	uint32_t pages_per_section = 15;
 	uint8_t thresh = 0xff;
 	image_format_t image_format = IMAGE_FORMAT_PBM;
-	uint32_t page_number = 0;
 	const char *output_file = "out.pig";
 	const char *title = "Unknown";
 	const char *author = "Unknown";
@@ -152,11 +261,12 @@ main(int argc, char **argv)
 		"Released under Artistic License 2.0 by Open Music Kontrollers\n", argv[0]);
 	
 	int c;
-	while((c = getopt(argc, argv, "vhW:H:P:S:F:T:O:t:a:")) != -1)
+	while((c = getopt(argc, argv, "vhW:H:F:T:O:t:a:")) != -1)
 	{
 		switch(c)
 		{
 			case 'v':
+			{
 				fprintf(stderr,
 					"--------------------------------------------------------------------\n"
 					"This is free software: you can redistribute it and/or modify\n"
@@ -171,8 +281,9 @@ main(int argc, char **argv)
 					"You should have received a copy of the Artistic License 2.0\n"
 					"along the source as a COPYING file. If not, obtain it from\n"
 					"http://www.perlfoundation.org/artistic_license_2_0.\n\n");
-				return 0;
+			}	return 0;
 			case 'h':
+			{
 				fprintf(stderr,
 					"--------------------------------------------------------------------\n"
 					"USAGE\n"
@@ -181,182 +292,120 @@ main(int argc, char **argv)
 					"OPTIONS\n"
 					"   [-v]                   print version and full license information\n"
 					"   [-h]                   print usage information\n"
-					"   [-W] width             width in pixels (800)\n"
-					"   [-H] height            height in pixels (600)\n"
-					"   [-P] page-number       page number\n"
-					"   [-S] pages-per-section pages per section (15)\n"
-					"   [-F] image-format      image format (pbm)\n"
-					"   [-T] threshold         greyscale threshold (0xff)\n"
-					"   [-O] output-file       output file (out.pig)\n"
-					"   [-t] title             set book title\n"
-					"   [-a] author            set book author\n\n"
-					, argv[0]);
-				return 0;
+					"   [-W] width             width in pixels (%"PRIu32")\n"
+					"   [-H] height            height in pixels (%"PRIu32")\n"
+					"   [-F] image-format      image format (pbm|png)\n"
+					"   [-T] threshold         greyscale threshold (0x%02"PRIx8")\n"
+					"   [-O] output-file       output file (%s)\n"
+					"   [-t] title             set book title (%s)\n"
+					"   [-a] author            set book author (%s)\n\n"
+					, argv[0], width, height, thresh, output_file, title, author);
+			}	return 0;
 			case 'W':
+			{
 				width = atoi(optarg);
-				break;
+			}	break;
 			case 'H':
+			{
 				height = atoi(optarg);
-				break;
-			case 'P':
-				page_number = atoi(optarg);
-				break;
-			case 'S':
-				pages_per_section = atoi(optarg);
-				break;
+			}	break;
 			case 'T':
+			{
 				thresh = atoi(optarg);
-				break;
+			}	break;
 			case 'F':
+			{
 				if(!strcasecmp(optarg, "png"))
+				{
 					image_format = IMAGE_FORMAT_PNG;
+				}
 				else if(!strcasecmp(optarg, "pbm"))
+				{
 					image_format = IMAGE_FORMAT_PBM;
-				break;
+				}
+			}	break;
 			case 'O':
+			{
 				output_file = optarg;
-				break;
+			}	break;
 			case 't':
+			{
 				title = optarg;
-				break;
+			}	break;
 			case 'a':
+			{
 				author = optarg;
-				break;
+			}	break;
 			case '?':
-				if(  (optopt == 'W') || (optopt == 'H') || (optopt == 'P')
-					|| (optopt == 'S') || (optopt == 'F') || (optopt == 'T')
+			{
+				if(  (optopt == 'W') || (optopt == 'H')
+					|| (optopt == 'F') || (optopt == 'T')
 					|| (optopt == 'O') || (optopt == 't') || (optopt == 'a') )
 					fprintf(stderr, "Option `-%c' requires an argument.\n", optopt);
 				else if(isprint(optopt))
 					fprintf(stderr, "Unknown option `-%c'.\n", optopt);
 				else
 					fprintf(stderr, "Unknown option character `\\x%x'.\n", optopt);
-				return -1;
+			}	return -1;
 			default:
-				return -1;
+			{
+			}	return -1;
 		}
 	}
 
-	const input_format_t input_format = argc > optind
-		? INPUT_FORMAT_FILE
-		: INPUT_FORMAT_STREAM;
+	const uint32_t page_number = argc - optind;
 
-	if(input_format == INPUT_FORMAT_FILE)
-		page_number = argc - optind;
-
-	if(pages_per_section == 0)
-		pages_per_section = page_number;
-
-	/*
-	printf(
-		"Title: %s\n"
-		"Author: %s\n"
-		"Width: %u\n"
-		"Height: %u\n"
-		"PageNumber#: %u\n"
-		"PagesPerSection#: %u\n"
-		"Thresh#: %u\n"
-		"Format#: %u\n"
-		"OutputFile#: %s\n",
-		title, author, width, height, page_number, pages_per_section, thresh, image_format, output_file);
-	*/
-
-	const uint32_t section_number = (page_number % pages_per_section) == 0
-		? page_number / pages_per_section
-		: page_number / pages_per_section + 1;
-
-	const size_t head_size = sizeof(head_t) + section_number*sizeof(uint32_t);
-	head_t *head = calloc(head_size, 1);
-	if(!head)
-		return -1;
-
-	memcpy(head->magic, FREEADER_MAGIC, FREEADER_MAGIC_LEN);
-	strncpy(head->title, title, FREEADER_TITLE_LEN);
-	strncpy(head->author, author, FREEADER_AUTHOR_LEN);
-	head->page_width = width;
-	head->page_height = height;
-	head->page_number = page_number;
-	head->pages_per_section = pages_per_section;
-
-	const size_t buflen = (width >> 3) + !!(width & 7);
-	uint8_t *lines [3] = {
-		malloc(buflen),
-		malloc(buflen),
-		malloc(buflen)
-	};
-		
-	png_bytep *row_pointers = malloc(sizeof(png_bytep) * height);
-	uint8_t **raw_pointers = malloc(sizeof(uint8_t *) * height);
-	for(unsigned j=0; j<height; j++)
+	app_t *app = _app_new(width, height, page_number, title, author,
+		output_file);
+	if(!app)
 	{
-		row_pointers[j] = malloc(width * sizeof(uint32_t));
-		raw_pointers[j] = malloc(width * sizeof(uint8_t) / 8);
+		goto fail;
 	}
 
-	encoder_t enc;
-	assert(freeader_encoder_init(&enc, output_file, section_number) == 0);
+	struct jbg85_enc_state state;
 
-	uint32_t s = 0; // section number
-	uint32_t y = 0; // line number
-
-	switch(input_format)
+	for(uint32_t p = 0; p < page_number; p++)
 	{
-		case INPUT_FORMAT_FILE:
+		jbg85_enc_init(&state, width, height, _out, app);
+		jbg85_enc_options(&state, JBG_TPBON, height, 8); // defaults
+
+		app->head->page_offset[p] = ftell(app->enc.fout);
+
 		{
-			//FIXME
-			break;
-		}
-		case INPUT_FORMAT_STREAM:
-		{
-			//FIXME
-			break;
-		}
-	}
-
-	for(unsigned p=0; p<page_number; p++)
-	{
-		if(p % pages_per_section == 0)
-		{
-			uint32_t pages = p + pages_per_section > page_number
-				? page_number - p
-				: pages_per_section;
-
-			if(p > 0)
-				jbg85_enc_newlen(&state, y);
-			jbg85_enc_init(&state, width, height * pages, _out, &enc);
-
-			int options = JBG_TPBON;
-			unsigned long l0 = height; // use default
-			int mx = 8; // use default
-			jbg85_enc_options(&state, options, l0, mx);
-
-			head->section_offset[s++] = ftell(enc.fout);
-			y = 0;
-
 			char link [32];
 			snprintf(link, sizeof(link), "/link/%"PRIu32, p + 1); //FIXME
 			const uint32_t len = htobe32(strlen(link));
-			fwrite(&len, sizeof(uint32_t), 1, enc.fout);
-			fwrite(link, strlen(link), 1, enc.fout);
-
-			printf("\n%i:", s-1);
+			fwrite(&len, sizeof(uint32_t), 1, app->enc.fout);
+			fwrite(link, strlen(link), 1, app->enc.fout);
 		}
 
 		switch(image_format)
 		{
 			case IMAGE_FORMAT_PNG:
 			{
-				_read_png_file(argv[optind + p], row_pointers);
+				_read_png_file(app, argv[optind + p], app->row_pointers);
+			} break;
+			case IMAGE_FORMAT_PBM:
+			{
+				_read_pbm_file(app, argv[optind + p], app->raw_pointers);
+			} break;
+		}
 
-				for(unsigned j=0; j<height; j++, y++)
+		for(uint32_t j = 0; j < height; j++)
+		{
+			uint8_t *line = app->lines[j % 3];
+			uint8_t *prevline = NULL;
+			uint8_t *prevprevline = NULL;
+
+			uint8_t *dst = line;
+
+			switch(image_format)
+			{
+				case IMAGE_FORMAT_PNG:
 				{
-					uint8_t *line = lines[y % 3];
-					uint8_t *prevline = NULL;
-					uint8_t *prevprevline = NULL;
+					png_byte *row = app->row_pointers[j];
 
-					uint8_t *dst = line;
-					png_byte *row = row_pointers[j];
-					for(unsigned x=0; x<width; x+=8, dst++)
+					for(uint32_t x = 0; x < width; x+=8, dst++)
 					{
 						png_byte *ptr = &(row[x*3]);
 						*dst = 0;
@@ -369,61 +418,35 @@ main(int argc, char **argv)
 						*dst |= (ptr[6*3] < thresh ? 1 : 0) << 1;
 						*dst |= (ptr[7*3] < thresh ? 1 : 0) << 0;
 					}
-
-					if(y>0)
-						prevline = lines[(y-1) % 3];
-					if(y>1)
-						prevprevline = lines[(y-2) % 3];
-					jbg85_enc_lineout(&state, line, prevline, prevprevline);
-				}
-
-				break;
-			}
-			case IMAGE_FORMAT_PBM:
-			{
-				_read_pbm_file(argv[optind + p], raw_pointers);
-
-				for(unsigned j=0; j<height; j++, y++)
+				} break;
+				case IMAGE_FORMAT_PBM:
 				{
-					uint8_t *line = lines[y % 3];
-					uint8_t *prevline = NULL;
-					uint8_t *prevprevline = NULL;
+					uint8_t *row = app->raw_pointers[j];
 
-					uint8_t *dst = line;
-					uint8_t *row = raw_pointers[j];
 					memcpy(dst, row, width/8);
-
-					if(y>0)
-						prevline = lines[(y-1) % 3];
-					if(y>1)
-						prevprevline = lines[(y-2) % 3];
-					jbg85_enc_lineout(&state, line, prevline, prevprevline);
-				}
-
-				break;
+				} break;
 			}
+
+			if(j > 0)
+			{
+				prevline = app->lines[ (j - 1) % 3];
+			}
+			if(j > 1)
+			{
+				prevprevline = app->lines[ (j - 2) % 3];
+			}
+			jbg85_enc_lineout(&state, line, prevline, prevprevline);
 		}
 
-		printf(" [%i]", p);
+		printf("\r[%4i/%i]", p+1, page_number);
 		fflush(stdout);
 	}
 	printf("\n");
 
-	for(unsigned j=0; j<height; j++)
-	{
-		free(row_pointers[j]);
-		free(raw_pointers[j]);
-	}
-	free(row_pointers);
-	free(raw_pointers);
-
-	free(lines[0]);
-	free(lines[1]);
-	free(lines[2]);
-
-	freeader_encoder_deinit(&enc, head, section_number);
-
-	free(head);
+	_app_free(app);
 
 	return 0;
+
+fail:
+	return 1;
 }

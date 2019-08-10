@@ -39,20 +39,23 @@ c_args = ['-fvisibility=hidden',
 	'-Wno-misleading-indentation',
 	'-Wno-unused-function']
 
-ui_srcs = ['freeader_emu.c']
-
-executable('freeader_emu', ui_srcs,
+freeader_emu = executable('freeader_emu', 'freeader_emu.c',
 	c_args : c_args,
 	dependencies : [ui_deps],
 	include_directories : incs,
 	install : true)
 
-executable('freeader_enc', 'freeader_enc.c',
+freeader_enc = executable('freeader_enc', 'freeader_enc.c',
 	c_args : c_args,
 	dependencies : [m_dep, jbig85_dep, png_dep],
 	install : true)
 
-executable('freeader_toc', 'freeader_toc.c',
+freeader_dec = executable('freeader_dec', 'freeader_dec.c',
+	c_args : c_args,
+	dependencies : [m_dep, jbig85_dep],
+	install : true)
+
+freeader_toc = executable('freeader_toc', 'freeader_toc.c',
 	c_args : c_args,
 	dependencies : [cairo_dep],
 	install : true)
@@ -63,6 +66,37 @@ configure_file(
 	copy : true,
 	install : true,
 	install_dir : join_paths(get_option('datadir'), 'freeader'))
+
+test('Encoding', freeader_enc,
+	is_parallel : false,
+	args : [
+		'-O', '0013.pig',
+		'-t', 'Flatland',
+		'-a', 'Adwin A. Abott',
+		'../0013.pbm'
+	])
+
+test('Decoding', freeader_dec,
+	is_parallel : false,
+	args : [
+		'0013.pig',
+		'0013.pbm',
+		'1'
+	])
+
+test('Toc', freeader_toc,
+	is_parallel : false)
+
+diff = find_program('diff', native : true, required : false)
+
+if diff.found()
+	test('Compare', diff,
+		is_parallel : false,
+		args : [
+			'../0013.pbm',
+			'0013.pbm'
+		])
+endif
 
 #install_man('freeader_enc.1')
 #install_man('freeader_emu.1')

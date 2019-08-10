@@ -25,9 +25,6 @@ struct _app_t {
 
 	float scale;
 	unsigned page;
-	unsigned section;
-	unsigned long ymin;
-	unsigned long ymax;
 
 	FILE *fin;
 
@@ -61,30 +58,25 @@ _out(const struct jbg85_dec_state *state __attribute__((unused)),
 	uint8_t *start, size_t len, unsigned long y, void *data)
 {
 	app_t *app = data;
-	//printf("_out: %lu %lu %lu\n", y, app->ymin, app->ymax);
 
-	if( (y >= app->ymin) && (y < app->ymax) )
+	const int y0 = y % app->head->page_height;
+	int offset = y0 * app->head->page_width;
+
+	for(size_t i=0; i<len; i++)
 	{
-		const int y0 = y % app->head->page_height;
-		int offset = y0 * app->head->page_width;
+		const uint8_t raw = start[i];
 
-		for(size_t i=0; i<len; i++)
+		for(int j=0; j<8; j++, offset++)
 		{
-			const uint8_t raw = start[i];
-
-			for(int j=0; j<8; j++, offset++)
-			{
-				app->argb[offset] = raw & bitmask[j]
-					? fg
-					: bg;
-			}
+			app->argb[offset] = raw & bitmask[j]
+				? fg
+				: bg;
 		}
+	}
 
-		if(y == app->ymax - 1)
-		{
-			//printf("Page: %i of %u\n", app->page + 1, app->head->page_number);
-			return 1;
-		}
+	if(y == 600 - 1) //FIXME
+	{
+		return 1;
 	}
 
 	return 0;
@@ -94,54 +86,32 @@ static void
 _page_set(app_t *app, unsigned page)
 {
 	if(page > app->head->page_number - 1)
+	{
 		page = app->head->page_number - 1;
-	
-	const unsigned section = page / app->head->pages_per_section;
-
-	if( (section == app->section) && (page > app->page) )
-	{
-		app->page = page;
-
-		app->ymin = (app->page % app->head->pages_per_section)
-			* app->head->page_height;
-		app->ymax = app->ymin + app->head->page_height;
-
-		//printf("advance: %u %u %lu %lu\n", app->page, app->section,
-		//	app->ymin, app->ymax);
 	}
-	else 
+	
+	app->page = page;
+
+	app->len = 0;
+	app->cnt = 0;
+	jbg85_dec_init(&app->state, app->outbuf, app->outbuflen, _out, app);
+	fseek(app->fin, app->head->page_offset[app->page], SEEK_SET);
+
+	uint32_t len;
+	fread(&len, sizeof(uint32_t), 1, app->fin);
+	len = be32toh(len);
+	if(len > 0)
 	{
-		app->page = page;
-		app->section = app->page / app->head->pages_per_section;
-
-		app->ymin = (app->page % app->head->pages_per_section)
-			* app->head->page_height;
-		app->ymax = app->ymin + app->head->page_height;
-		
-		//printf("seek: %u %u %lu %lu %u\n", app->page, app->section,
-		//	app->ymin, app->ymax, app->head->section_offset[app->section]);
-
-		app->len = 0;
-		app->cnt = 0;
-		jbg85_dec_init(&app->state, app->outbuf, app->outbuflen, _out, app);
-		fseek(app->fin, app->head->section_offset[app->section], SEEK_SET);
-
-		uint32_t len;
-		fread(&len, sizeof(uint32_t), 1, app->fin);
-		len = be32toh(len);
-		if(len > 0)
+		char *link = alloca(len + 1);
+		if(link)
 		{
-			char *link = alloca(len + 1);
-			if(link)
-			{
-				fread(link, len, 1, app->fin);
-				link[len] = '\0';
-				fprintf(stdout, "link: %s\n", link);
-			}
-			else
-			{
-				fseek(app->fin, len, SEEK_CUR);
-			}
+			fread(link, len, 1, app->fin);
+			link[len] = '\0';
+			fprintf(stdout, "link: %s\n", link);
+		}
+		else
+		{
+			fseek(app->fin, len, SEEK_CUR);
 		}
 	}
 }
@@ -328,7 +298,6 @@ main(int argc __attribute__((unused)), char **argv)
 	static app_t app;
 
 	app.page = UINT_MAX;
-	app.section = UINT_MAX;
 
 	if(!argv[1])
 	{
@@ -359,18 +328,16 @@ main(int argc __attribute__((unused)), char **argv)
 	head.page_width = be32toh(head.page_width);
 	head.page_height = be32toh(head.page_height);
 	head.page_number = be32toh(head.page_number);
-	head.pages_per_section = be32toh(head.pages_per_section);
-	uint32_t section_number = (head.page_number % head.pages_per_section) == 0
-		? head.page_number / head.pages_per_section
-		: head.page_number / head.pages_per_section + 1;
 
-	size_t offset_size = section_number*sizeof(uint32_t);
+	const uint32_t page_number = head.page_number;
+
+	size_t offset_size = page_number*sizeof(uint32_t);
 	app.head = malloc(sizeof(head_t) + offset_size);
 	memcpy(app.head, &head, sizeof(head));
-	fread(app.head->section_offset, 1, offset_size, app.fin);
-	for(unsigned s=0; s<section_number; s++)
+	fread(app.head->page_offset, 1, offset_size, app.fin);
+	for(unsigned s=0; s<page_number; s++)
 	{
-		app.head->section_offset[s] = be32toh(app.head->section_offset[s]);
+		app.head->page_offset[s] = be32toh(app.head->page_offset[s]);
 	}
 
   app.inbuflen = 256 * 1024; //TODO

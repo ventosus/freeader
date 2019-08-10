@@ -38,7 +38,7 @@ _save_to_pbm(const char *path, unsigned width, unsigned height, unsigned stride,
 	FILE *fout = fopen(path, "wb");
 	if(fout)
 	{
-		fprintf(fout, "P4\n%u %u\n", width, height);
+		fprintf(fout, "P4\n%10u\n%10u\n", width, height);
 
 		for(unsigned j = 0; j < height; j++)
 		{
@@ -192,8 +192,8 @@ _item_append(item_t *items, const char *title, const char *author,
 	{
 		item_t *item = &items[*num];
 
-		strncpy(item->title, title, FREEADER_TITLE_LEN - 1);
-		strncpy(item->author, author, FREEADER_TITLE_LEN - 1);
+		snprintf(item->title, sizeof(item->title), "%s", title);
+		snprintf(item->author, sizeof(item->author), "%s", author);
 		item->is_folder = is_folder;
 
 		(*num)++;
@@ -250,12 +250,12 @@ _iterate(app_t *app, const char *fmt, const char *dir,
 			continue;
 		}
 
-		fprintf(stderr, ":: %s (%i)\n", data->d_name, data->d_type);
+		//fprintf(stderr, ":: %s (%i)\n", data->d_name, data->d_type);
 		if(data->d_type == DT_DIR)
 		{
-			items = _item_append(items, data->d_name, "/...", true, &num);
+			//items = _item_append(items, data->d_name, "/...", true, &num);
 
-			fprintf(stderr, ":: is directory\n");
+			//fprintf(stderr, ":: is directory\n");
 			//_iterate(app, fmt, buffer, width, height, stride, data)
 		}
 		else if(data->d_type == DT_REG)
